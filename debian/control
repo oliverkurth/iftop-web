@@ -1,7 +1,7 @@
 Source: iftop
 Section: net
 Priority: optional
-Maintainer: Alexander Reichle-Schmehl <tolimar@debian.org>
+Maintainer: Markus Koschany <apo@gambaru.de>
 Build-Depends: debhelper (>= 7.0.50~), autotools-dev, libncurses5-dev, libpcap0.8-dev
 Standards-Version: 3.9.3
 Homepage: http://www.ex-parrot.com/~pdw/iftop/
