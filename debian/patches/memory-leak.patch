@@ -2,6 +2,7 @@ From: Markus Koschany <apo@gambaru.de>
 Date: Fri, 18 Oct 2013 23:39:00 +0200
 Subject: memory leak
 
+
 ---
  resolver.c | 14 +++++++-------
  1 file changed, 7 insertions(+), 7 deletions(-)
