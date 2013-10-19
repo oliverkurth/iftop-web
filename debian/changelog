@@ -8,6 +8,8 @@ iftop (1.0~pre2-4) unstable; urgency=low
   * [ab3dd6a] Update VCS-fields.
      - Move packaging to Git repository at collab-maint.
   * [580ac7d] Require debhelper >= 9 for compat level 9. (Closes: #693754)
+  * [b881f79] Switch to source format 3.0 (quilt).
+  * [66bb584] Bump Standards-Version to 3.9.4, no changes.
 
  -- Markus Koschany <apo@gambaru.de>  Sat, 19 Oct 2013 11:26:10 +0200
 
