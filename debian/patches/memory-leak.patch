@@ -7,7 +7,6 @@ but never freed if dns resolution was turned off. Thanks to Olivier
 Allard-Jacquin for the report and patch.
 
 Bug: http://bugs.debian.org/677141
-
 ---
  resolver.c | 14 +++++++-------
  1 file changed, 7 insertions(+), 7 deletions(-)
