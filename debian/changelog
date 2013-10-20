@@ -4,9 +4,10 @@ iftop (1.0~pre2-5) unstable; urgency=low
   * [fdf86bf] Drop README.source.
      - Source format 3.0 uses quilt by default.
   * [e2651cf] Fix watch file and detect the latest upstream release.
-  * [2f7ea27] Build with autoreconf instead of autotools-dev to recreate the
-    whole build system at build time and to ensure that iftop can be built
-    twice in a row. Thanks to Graham Inggs for the report. (Closes: #681560)
+  * [2f7ea27] Build with --parallel and autoreconf instead of autotools-dev
+    to recreate the  whole build system at build time and to ensure that
+    iftop can be built twice in a row. Thanks to Graham Inggs for the report.
+    (Closes: #681560)
   * [92cec5f] Update copyright to copyright format 1.0.
      - Add missing BSD licenses.
 
