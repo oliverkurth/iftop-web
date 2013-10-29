@@ -12,8 +12,9 @@ iftop (1.0~pre2-5) unstable; urgency=low
      - Add missing BSD licenses.
   * [e8e73e0] Add man-page.patch.
      - Fix errors in man page and lintian warning hyphen-used-as-minus-sign.
+  * Bump Standards-Version to 3.9.5, no changes.
 
- -- Markus Koschany <apo@gambaru.de>  Sun, 20 Oct 2013 21:12:41 +0200
+ -- Markus Koschany <apo@gambaru.de>  Thu, 31 Oct 2013 20:00:59 +0100
 
 iftop (1.0~pre2-4) unstable; urgency=low
 
