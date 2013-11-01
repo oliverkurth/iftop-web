@@ -23,7 +23,8 @@ Comment:
  ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change
 
 Files: debian/*
-Copyright: 2005-2009, Daniel Baumann <daniel@debian.org>,
+Copyright: 2002-2004, christophe barbe <christophe@debian.org>
+           2005-2009, Daniel Baumann <daniel@debian.org>
            2009-2013, Alexander Reichle-Schmehl <tolimar@debian.org>
            2013,      Markus Koschany <apo@gambaru.de>
 License: GPL-2+
