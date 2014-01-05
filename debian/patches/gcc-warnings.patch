@@ -1,0 +1,21 @@
+From: Markus Koschany <apo@gambaru.de>
+Date: Sun, 5 Jan 2014 12:55:19 +0100
+Subject: gcc warnings
+
+---
+ iftop.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/iftop.c b/iftop.c
+index 1e9f910..e58fbb4 100644
+--- a/iftop.c
++++ b/iftop.c
+@@ -145,7 +145,7 @@ void tick(int print) {
+     if(t - last_timestamp >= RESOLUTION) {
+         analyse_data();
+         if (options.no_curses) {
+-          if (!options.timed_output || options.timed_output && t - first_timestamp >= options.timed_output) {
++          if (!options.timed_output || (options.timed_output && t - first_timestamp >= options.timed_output)) {
+             tui_print();
+             if (options.timed_output) {
+               finish(SIGINT);
