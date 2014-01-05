@@ -1,3 +1,11 @@
+iftop (1.0~pre3-1) UNRELEASED; urgency=medium
+
+  * Imported Upstream version 1.0~pre3.
+  * Drop all patches. Merged upstream.
+  * Update debian/copyright for new release.
+
+ -- Markus Koschany <apo@gambaru.de>  Sun, 05 Jan 2014 02:30:24 +0100
+
 iftop (1.0~pre2-5) unstable; urgency=low
 
   * [76d626d] Drop NEWS file. It is obsolete.
