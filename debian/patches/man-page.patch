@@ -16,7 +16,7 @@ index 7c0c681..3432ce0 100644
  \fB~/.iftoprc\fP if it exists.  See below for a description of config files
 +.TP
 +\fB-t\fP \fItext output mode\fP
-+use text interface without ncurses and print the output to STDOUT.
++Use text interface without ncurses and print the output to STDOUT.
 +
  
  .SH DISPLAY
