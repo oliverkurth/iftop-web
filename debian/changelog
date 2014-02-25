@@ -1,10 +1,10 @@
-iftop (1.0~pre4-1) UNRELEASED; urgency=medium
+iftop (1.0~pre4-1) experimental; urgency=medium
 
-  * Imported Upstream version 1.0~pre4
-  * Update debian/copyright for new release.
+  * Imported Upstream version 1.0~pre4.
   * Drop all patches. Merged upstream.
+  * Update debian/copyright for new release.
 
- -- Markus Koschany <apo@gambaru.de>  Mon, 20 Jan 2014 12:19:44 +0100
+ -- Markus Koschany <apo@gambaru.de>  Tue, 25 Feb 2014 22:48:37 +0100
 
 iftop (1.0~pre2-5) unstable; urgency=low
 
