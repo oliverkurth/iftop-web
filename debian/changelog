@@ -1,3 +1,12 @@
+iftop (1.0~pre4-2) unstable; urgency=medium
+
+  * Upload to unstable.
+  * Add MAC-address-format.patch which restores the MAC address formatting to
+    its former behaviour.
+    Thanks Xiaoguang Sun who reported this issue on iftop's mailing list.
+
+ -- Markus Koschany <apo@gambaru.de>  Tue, 11 Mar 2014 13:21:55 +0100
+
 iftop (1.0~pre4-1) experimental; urgency=medium
 
   * Imported Upstream version 1.0~pre4.
