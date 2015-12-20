@@ -3,6 +3,7 @@ iftop (1.0~pre4-3) unstable; urgency=medium
   * Drop iftop-dbg because the automatic -dbgsym package has replaced it.
   * Declare compliance with Debian Policy 3.9.6.
   * Update my e-mail address.
+  * Vcs-Browser: Switch to cgit and https.
 
  -- Markus Koschany <apo@debian.org>  Sun, 20 Dec 2015 23:18:10 +0100
 

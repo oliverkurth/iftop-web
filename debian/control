@@ -10,7 +10,7 @@ Build-Depends:
 Standards-Version: 3.9.6
 Homepage: http://www.ex-parrot.com/~pdw/iftop/
 Vcs-Git: git://anonscm.debian.org/collab-maint/iftop.git
-Vcs-Browser: http://anonscm.debian.org/gitweb/?p=collab-maint/iftop.git
+Vcs-Browser: https://anonscm.debian.org/cgit/collab-maint/iftop.git
 
 Package: iftop
 Architecture: any
