@@ -9,6 +9,3 @@ export DEB_LDFLAGS_MAINT_APPEND = -Wl,-z,defs
 
 override_dh_auto_install:
 	dh_auto_install -- DESTDIR=$(CURDIR)/debian/iftop
-
-override_dh_strip:
-	dh_strip --dbg-package=iftop-dbg

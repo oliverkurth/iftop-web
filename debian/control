@@ -23,17 +23,3 @@ Description: displays bandwidth usage information on an network interface
  usage by pairs of hosts. Handy for answering the question "Why is my Internet
  link so slow?".
 
-Package: iftop-dbg
-Section: debug
-Priority: extra
-Architecture: any
-Depends:
- iftop (= ${binary:Version}),
- ${misc:Depends}
-Description: displays bandwidth usage information on an network interface (debug)
- iftop does for network usage what top(1) does for CPU usage. It listens to
- network traffic on a named interface and displays a table of current bandwidth
- usage by pairs of hosts. Handy for answering the question "Why is my Internet
- link so slow?".
- .
- This package contains the debugging symbols.
