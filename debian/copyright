@@ -47,7 +47,7 @@ Files: debian/*
 Copyright: 2002-2004, christophe barbe <christophe@debian.org>
            2005-2009, Daniel Baumann <daniel@debian.org>
            2009-2013, Alexander Reichle-Schmehl <tolimar@debian.org>
-           2013-2014, Markus Koschany <apo@gambaru.de>
+           2013-2015, Markus Koschany <apo@debian.org>
 License: GPL-2+
 
 License: GPL-2+

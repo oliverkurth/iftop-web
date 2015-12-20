@@ -1,7 +1,7 @@
 Source: iftop
 Section: net
 Priority: optional
-Maintainer: Markus Koschany <apo@gambaru.de>
+Maintainer: Markus Koschany <apo@debian.org>
 Build-Depends:
  debhelper (>= 9),
  dh-autoreconf,
