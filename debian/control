@@ -4,7 +4,6 @@ Priority: optional
 Maintainer: Markus Koschany <apo@debian.org>
 Build-Depends:
  debhelper (>= 10),
- dh-autoreconf,
  libncurses5-dev,
  libpcap0.8-dev
 Standards-Version: 3.9.8
