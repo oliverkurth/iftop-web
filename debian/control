@@ -8,7 +8,7 @@ Build-Depends:
  libpcap0.8-dev
 Standards-Version: 3.9.8
 Homepage: http://www.ex-parrot.com/~pdw/iftop/
-Vcs-Git: git://anonscm.debian.org/collab-maint/iftop.git
+Vcs-Git: https://anonscm.debian.org/git/collab-maint/iftop.git
 Vcs-Browser: https://anonscm.debian.org/cgit/collab-maint/iftop.git
 
 Package: iftop
