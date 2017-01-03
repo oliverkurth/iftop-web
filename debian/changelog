@@ -1,3 +1,13 @@
+iftop (1.0~pre4-4) unstable; urgency=medium
+
+  * Switch to compat level 10.
+  * Declare compliance with Debian Policy 3.9.8.
+  * Vcs-Git: Use https.
+  * Add iftop-cleanup.patch to allow pcap to exit gracefully.
+    Thanks to Brian Russell for the report and patch. (Closes: #850040)
+
+ -- Markus Koschany <apo@debian.org>  Tue, 03 Jan 2017 23:15:26 +0100
+
 iftop (1.0~pre4-3) unstable; urgency=medium
 
   * Drop iftop-dbg because the automatic -dbgsym package has replaced it.
