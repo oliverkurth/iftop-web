@@ -1,6 +1,8 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: iftop
 Source: http://www.ex-parrot.com/~pdw/iftop/download
+Comment:
+ Git repository can be found at https://code.blinkace.com/pdw/iftop
 
 Files: *
 Copyright: 2001-2002, Paul Warren <pdw@ex-parrot.com>
