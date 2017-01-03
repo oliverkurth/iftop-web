@@ -5,7 +5,7 @@ export DEB_CFLAGS_MAINT_APPEND = -DNO_SYSTEM -Wall -DUSE_GETNAMEINFO=1 -DUSE_GET
 export DEB_LDFLAGS_MAINT_APPEND = -Wl,-z,defs
 
 %:
-	dh $@ --parallel --with autoreconf
+	dh $@
 
 override_dh_auto_install:
 	dh_auto_install -- DESTDIR=$(CURDIR)/debian/iftop
