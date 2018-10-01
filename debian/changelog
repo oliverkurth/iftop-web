@@ -1,6 +1,7 @@
 iftop (1.0~pre4-5) UNRELEASED; urgency=medium
 
   * d/copyright: Use https protocol in Format field
+  * d/control: Set Vcs-* to salsa.debian.org
 
  -- Ondřej Nový <onovy@debian.org>  Mon, 01 Oct 2018 09:51:59 +0200
 
