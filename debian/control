@@ -6,7 +6,7 @@ Build-Depends:
  debhelper (>= 11),
  libncurses5-dev,
  libpcap0.8-dev
-Standards-Version: 3.9.8
+Standards-Version: 4.2.1
 Homepage: http://www.ex-parrot.com/~pdw/iftop/
 Vcs-Git: https://salsa.debian.org/debian/iftop.git
 Vcs-Browser: https://salsa.debian.org/debian/iftop
