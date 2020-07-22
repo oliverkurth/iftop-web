@@ -3,7 +3,7 @@ Section: net
 Priority: optional
 Maintainer: Markus Koschany <apo@debian.org>
 Build-Depends:
- debhelper (>= 11),
+ debhelper-compat (= 13),
  libncurses5-dev,
  libpcap0.8-dev
 Standards-Version: 4.3.0
