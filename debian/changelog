@@ -1,3 +1,11 @@
+iftop (1.0~pre4-9) unstable; urgency=medium
+
+  * Fix Debian bug "iftop resolves all IPv6 addresses to the same hostname".
+    Thanks to Harald Hannelius for the report and Paul Warren for the patch.
+    (Closes: #962695)
+
+ -- Markus Koschany <apo@debian.org>  Fri, 24 Feb 2023 22:12:21 +0100
+
 iftop (1.0~pre4-8) unstable; urgency=medium
 
   * Declare compliance with Debian Policy 4.6.2.
