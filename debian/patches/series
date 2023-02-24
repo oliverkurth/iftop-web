@@ -1,3 +1,4 @@
 MAC-address-format.patch
 iftop-cleanup.patch
 support-multi-gigabit-interfaces.patch
+bug-debian-962695-ipv6-dns-resolution.patch
