@@ -3,7 +3,7 @@ iftop (1.0~pre4-10) unstable; urgency=medium
   * Ack NMU by Florian Ernst. Thank you for the patch!
   * Fix Debian bug #644998.
     Choose first running interface, rather than first "up" interface
-    Thanks to Robert Scheck <robert@fedoraproject.org> (Closes: #644998)
+    Thanks to Jason Tibbitts for the patch. (Closes: #644998)
   * Declare compliance with Debian Policy 4.7.2.
   * Switch from libncurses5-dev to libncurses-dev.
 
