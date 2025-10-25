@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Markus Koschany <apo@debian.org>
 Build-Depends:
  debhelper-compat (= 13),
- libncurses5-dev,
+ libncurses-dev,
  libpcap0.8-dev
 Standards-Version: 4.7.2
 Homepage: https://www.ex-parrot.com/~pdw/iftop/
