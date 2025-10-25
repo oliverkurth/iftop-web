@@ -7,7 +7,7 @@ Build-Depends:
  libncurses5-dev,
  libpcap0.8-dev
 Standards-Version: 4.6.2
-Homepage: http://www.ex-parrot.com/~pdw/iftop/
+Homepage: https://www.ex-parrot.com/~pdw/iftop/
 Vcs-Git: https://salsa.debian.org/debian/iftop.git
 Vcs-Browser: https://salsa.debian.org/debian/iftop
 
@@ -21,4 +21,3 @@ Description: displays bandwidth usage information on an network interface
  network traffic on a named interface and displays a table of current bandwidth
  usage by pairs of hosts. Handy for answering the question "Why is my Internet
  link so slow?".
-
