@@ -294,3 +294,12 @@ def test_fold_on_recorded_data(logged_in, live_file):
     assert data["count"] > 0 and data["matched"] >= 1
     assert all(c["src"].get("service") == "http-alt" or c["dst"].get("service") == "http-alt"
                for c in data["connections"])
+
+
+def test_secret_key_is_created_once(cfg, tmp_path):
+    cfg.web.secret_key_file = str(tmp_path / "secret_key")
+    app = create_app(cfg)
+    secret = (tmp_path / "secret_key").read_text().strip()
+    assert app.config["SECRET_KEY"] == secret.encode() and len(secret) >= 32
+    assert (tmp_path / "secret_key").stat().st_mode & 0o777 == 0o600
+    assert create_app(cfg).config["SECRET_KEY"] == secret.encode()

@@ -22,7 +22,7 @@ class RetentionConfig:
 
 @dataclass
 class WebConfig:
-    bind: str = "127.0.0.1:8443"
+    bind: str = "127.0.0.1:8000"
     certfile: str | None = None
     keyfile: str | None = None
     # Allow plain HTTP on a non-local address, e.g. behind a TLS proxy.
@@ -31,17 +31,19 @@ class WebConfig:
     proxy_fix: bool = False
     cookie_secure: bool = True
     session_timeout_minutes: int = 60
-    secret_key_file: str = "/etc/iftop-web/secret_key"
-    users_db: str = "/var/lib/iftop-web/users/users.db"
+    # Created on first start if missing.
+    secret_key_file: str = "/var/lib/iftop-web/secret_key"
+    users_db: str = "/var/lib/iftop-web/users.db"
     login_rate_limit: str = "5 per minute"
 
 
 @dataclass
 class Config:
-    interfaces: list[str]
-    iftop: str = "/usr/sbin/iftop"
+    # Empty: let iftop pick the interface (the first one that is running).
+    interfaces: list[str] = field(default_factory=list)
+    iftop: str = "/usr/sbin/iftop-json"
     iftop_args: list[str] = field(default_factory=list)
-    datadir: str = "/var/lib/iftop-web"
+    datadir: str = "/var/lib/iftop-collector"
     ephemeral_port_min: int = 32768
     server_ports: list[int] = field(default_factory=list)
     retention: RetentionConfig = field(default_factory=RetentionConfig)
@@ -49,7 +51,7 @@ class Config:
 
     @property
     def interface(self):
-        return self.interfaces[0]
+        return self.interfaces[0] if self.interfaces else None
 
     @property
     def live_path(self):
@@ -68,13 +70,11 @@ def from_dict(data):
     data = dict(data)
     retention = _build(RetentionConfig, data.pop("retention", {}), "[retention]")
     web = _build(WebConfig, data.pop("web", {}), "[web]")
-    if "interfaces" not in data:
-        raise ConfigError("'interfaces' is required")
     cfg = _build(Config, data, "top level")
     cfg.retention = retention
     cfg.web = web
-    if not isinstance(cfg.interfaces, list) or len(cfg.interfaces) != 1:
-        raise ConfigError("'interfaces' must list exactly one interface (only one is supported for now)")
+    if not isinstance(cfg.interfaces, list) or len(cfg.interfaces) > 1:
+        raise ConfigError("'interfaces' must list at most one interface (only one is supported for now)")
     return cfg
 
 

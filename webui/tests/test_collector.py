@@ -85,3 +85,8 @@ def test_missing_iftop_binary_is_retried(cfg, tmp_path):
     collector.run()
     assert len(attempts) == 3
     assert not os.path.exists(cfg.live_path)
+
+
+def test_no_interface_lets_iftop_choose(cfg):
+    cfg.interfaces = []
+    assert Collector(cfg, LiveWriter(cfg.live_path)).command() == [cfg.iftop, "-P"]

@@ -1,5 +1,7 @@
 """Flask web interface for iftop."""
 
+import os
+import secrets
 from datetime import timedelta
 
 from flask import Flask, current_app, jsonify, redirect, request, url_for
@@ -11,13 +13,23 @@ from .live import SnapshotCache
 from .users import UserStore, user_cli
 
 
+def _create_secret(path):
+    """Creates the secret key file if it does not exist yet (mode 0600)."""
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        return
+    with os.fdopen(fd, "w") as f:
+        f.write(secrets.token_urlsafe(32) + "\n")
+
+
 def _read_secret(path):
     try:
+        _create_secret(path)
         with open(path, "rb") as f:
             secret = f.read().strip()
     except OSError as e:
-        raise config_mod.ConfigError(f"cannot read secret_key_file {path}: {e} "
-                                     "(create it with: head -c 32 /dev/urandom | base64 > FILE)") from e
+        raise config_mod.ConfigError(f"cannot create or read secret_key_file {path}: {e}") from e
     if len(secret) < 16:
         raise config_mod.ConfigError(f"secret key in {path} is too short")
     return secret

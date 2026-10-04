@@ -2,16 +2,16 @@
 # Default location: /etc/iftop-web/config.toml (override with $IFTOP_WEB_CONFIG
 # or the collector's --config option).
 
-# Exactly one interface for now.
+# At most one interface for now. Empty: iftop picks the first running one.
 interfaces = ["eth0"]
 
-iftop = "/usr/sbin/iftop"
+iftop = "/usr/sbin/iftop-json"
 # Extra iftop arguments, e.g. a pcap filter: ["-f", "not port 22"].
 # -i and -P are always passed by the collector.
 iftop_args = []
 
-# Written by the collector (root), read by the web app.
-datadir = "/var/lib/iftop-web"
+# Written by the collector, read by the web app.
+datadir = "/var/lib/iftop-collector"
 
 # Stage 2: how the client side of a connection is found, so its port can be
 # stored as "*" (see PLAN.md). Ports of servers that listen on high ports:
@@ -37,8 +37,8 @@ proxy_fix = false
 # testing on localhost.
 cookie_secure = true
 session_timeout_minutes = 60
-# Create with: head -c 32 /dev/urandom | base64 > /etc/iftop-web/secret_key
-secret_key_file = "/etc/iftop-web/secret_key"
+# Created with a random key on first start if it does not exist.
+secret_key_file = "/var/lib/iftop-web/secret_key"
 # Owned by the web app's user; separate from datadir.
-users_db = "/var/lib/iftop-web/users/users.db"
+users_db = "/var/lib/iftop-web/users.db"
 login_rate_limit = "5 per minute"

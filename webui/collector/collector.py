@@ -107,7 +107,9 @@ class Collector:
 
     def command(self):
         # -P: ports are needed for the port views; no -n: names are wanted.
-        return [self.cfg.iftop, "-i", self.cfg.interface, "-P", *self.cfg.iftop_args]
+        # Without an interface, iftop picks the first one that is running.
+        iface = ["-i", self.cfg.interface] if self.cfg.interface else []
+        return [self.cfg.iftop, *iface, "-P", *self.cfg.iftop_args]
 
     def request_stop(self, *_):
         self.stop.set()

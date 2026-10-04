@@ -9,11 +9,11 @@ def test_example_config_loads():
     config_mod.check_web_bind(cfg.web)
 
 
-def test_only_one_interface():
+def test_at_most_one_interface():
     with pytest.raises(config_mod.ConfigError):
         config_mod.from_dict({"interfaces": ["eth0", "eth1"]})
-    with pytest.raises(config_mod.ConfigError):
-        config_mod.from_dict({})
+    assert config_mod.from_dict({}).interface is None
+    assert config_mod.from_dict({"interfaces": []}).interface is None
 
 
 def test_unknown_keys_are_rejected():
