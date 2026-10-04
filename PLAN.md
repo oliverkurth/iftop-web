@@ -8,7 +8,7 @@ stdout every 2 seconds (`RESOLUTION`).
 
 | Topic | Decision |
 |---|---|
-| Ephemeral ports | Folded to `*`; the well-known / lower port is kept. Threshold configurable. |
+| Ephemeral ports | The client side's port is folded to `*`. Which side is the client is decided by rules (configured server ports, known services, low ports, then a threshold); see stage 2. |
 | Host names | Resolved names are stored. Records are keyed by IP; the latest name per IP is kept in a `hosts` table and used for display and grouping. |
 | Interfaces | One interface, set in config. Schema and collector are prepared for several. |
 | Access | Listens on public interfaces; login required for everything; TLS required. |
@@ -77,7 +77,8 @@ interfaces = ["eth0"]        # exactly one entry for now
 iftop = "/usr/sbin/iftop"
 iftop_args = []              # extra args, e.g. a BPF filter via -f
 datadir = "/var/lib/iftop-web"
-ephemeral_port_min = 32768
+ephemeral_port_min = 32768   # Linux default range starts here
+server_ports = []            # servers on high ports, e.g. [51820, 32400]
 
 [retention]
 minute_days = 7
@@ -155,9 +156,34 @@ secret_key_file = "/etc/iftop-web/secret_key"
 ## Stage 2 — aggregation
 
 1. **Key for each record:** `(interface, proto, src_addr, src_port, dst_addr,
-   dst_port)`, normalised so that ephemeral ports become `*`. A port is folded
-   when it is ≥ `ephemeral_port_min` and the other port is < 1024 or a known
-   service.
+   dst_port)`, with the client side's port folded to `*` so each connection
+   doesn't become its own record.
+
+   There is no single definition of an ephemeral port. IANA's range is
+   49152–65535, Linux uses 32768–60999, FreeBSD 10000–65535, and old Windows
+   1024–5000. Real servers also listen in those ranges, e.g. WireGuard on 51820
+   or Plex on 32400. So a fixed threshold alone won't do. Instead the collector
+   decides which side is the server and folds the other side's port. The first
+   rule that applies wins:
+
+   1. **Configured server port:** if one side's port is in `server_ports`, that
+      side is the server.
+   2. **Known service:** if exactly one side is a known service, that side is
+      the server. "Known" means iftop reports a service name that differs from
+      the port number (iftop reports the number itself when `/etc/services` has
+      no entry).
+   3. **Low port:** if one side is below 1024 and the other isn't, the low side
+      is the server.
+   4. **Threshold:** otherwise, if the higher port is ≥ `ephemeral_port_min`,
+      the lower side is the server. If both ports are below the threshold, or
+      they are equal, nothing is folded.
+
+   Connections without ports (e.g. ICMP) are never folded. The rules only
+   affect the stored key; the live view keeps the real ports.
+
+   Possible later improvement: learn server ports from the data (a port seen
+   with many different peer ports is a server). Add this only if the rules
+   above fold the wrong side in practice.
 2. **SQLite schema (`iftop.db`)**
    - `tuples(id, interface, proto, src_addr, src_port, dst_addr, dst_port)`,
      unique on the key.
@@ -197,8 +223,10 @@ secret_key_file = "/etc/iftop-web/secret_key"
      locally by Flask. Downtime is shown as breaks in the line, not as zero.
    - API: `/api/agg?window=…&group=…`.
 7. **Tests:** rollup correctness, a simulated crash before the write followed
-   by a restart, buckets at boundaries, ephemeral-port folding, and name
-   updates in `hosts`.
+   by a restart, buckets at boundaries, name updates in `hosts`, and each
+   folding rule: a configured high server port (51820), a known service on a
+   high port, a low port against an unknown port, both ports high, both
+   below the threshold, equal ports, and connections without ports.
 
 ## Stage 3 — history and port selection
 

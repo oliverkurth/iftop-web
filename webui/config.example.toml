@@ -13,8 +13,11 @@ iftop_args = []
 # Written by the collector (root), read by the web app.
 datadir = "/var/lib/iftop-web"
 
-# Stage 2: ports at or above this are folded into "*" when the other side is a
-# well-known port.
+# Stage 2: how the client side of a connection is found, so its port can be
+# stored as "*" (see PLAN.md). Ports of servers that listen on high ports:
+server_ports = []          # e.g. [51820, 32400]
+# Used only when neither side is a configured server port, a known service or
+# below 1024: the higher port is folded if it is at least this.
 ephemeral_port_min = 32768
 
 [retention]

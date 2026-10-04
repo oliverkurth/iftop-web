@@ -43,6 +43,7 @@ class Config:
     iftop_args: list[str] = field(default_factory=list)
     datadir: str = "/var/lib/iftop-web"
     ephemeral_port_min: int = 32768
+    server_ports: list[int] = field(default_factory=list)
     retention: RetentionConfig = field(default_factory=RetentionConfig)
     web: WebConfig = field(default_factory=WebConfig)
 
