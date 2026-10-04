@@ -137,6 +137,9 @@ button.link {
   margin-left: 6px; font-size: 10px; text-transform: uppercase;
   color: var(--muted); border: 1px solid var(--border); border-radius: 3px; padding: 0 3px;
 }
+.end .merged:not(:empty) {
+  margin-left: 6px; font-size: 11px; color: var(--muted); font-family: var(--mono);
+}
 .end.dst::before { content: "↔ "; color: var(--muted); }
 
 .track {

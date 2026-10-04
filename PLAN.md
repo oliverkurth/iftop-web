@@ -137,7 +137,13 @@ secret_key_file = "/etc/iftop-web/secret_key"
      changes. Linear or log.
    - Label: `src:port ↔ dst:port`, protocol; IP as a tooltip.
    - Controls: averaging window (2 s, 10 s or 40 s), linear or log scale, sort
-     order, text filter on host or port.
+     order, text filter on host or port, and "Client ports: separate /
+     folded".
+   - Folding (`/api/live?fold=1`) merges connections that differ only in the
+     client port, using the same rules as stage 2 (`common/ports.py`). It is
+     done on the server before sorting and the limit, so many small
+     connections to one server rank by their sum. Each folded row shows `:*`
+     and how many connections it contains.
    - Totals row at the top; refreshes every 2 s. Polling pauses while the tab
      is hidden (`visibilitychange`).
    - Plain JS and CSS, no build step; static assets served locally (no CDN).

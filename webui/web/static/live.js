@@ -6,6 +6,7 @@
   // Bar scale maxima in bits/s, as in iftop. The scale only grows.
   const SCALE_STEPS = [64e3, 128e3, 256e3, 1e6, 10e6, 100e6, 1e9, 10e9, 100e9];
   const SETTINGS_KEY = "iftop-live-settings";
+  const SETTINGS = ["window", "sort", "fold", "scaleMode", "units"];
 
   const root = document.querySelector(".live");
   const apiUrl = root.dataset.api;
@@ -13,6 +14,7 @@
   const els = {
     window: document.getElementById("window"),
     sort: document.getElementById("sort"),
+    fold: document.getElementById("fold"),
     scaleMode: document.getElementById("scale-mode"),
     units: document.getElementById("units"),
     filter: document.getElementById("filter"),
@@ -36,14 +38,14 @@
   function loadSettings() {
     let s = {};
     try { s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") || {}; } catch (e) { s = {}; }
-    for (const k of ["window", "sort", "scaleMode", "units"]) {
+    for (const k of SETTINGS) {
       if (s[k] && [...els[k].options].some((o) => o.value === s[k])) els[k].value = s[k];
     }
   }
 
   function saveSettings() {
     const s = {};
-    for (const k of ["window", "sort", "scaleMode", "units"]) s[k] = els[k].value;
+    for (const k of SETTINGS) s[k] = els[k].value;
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) { /* ignore */ }
   }
 
@@ -112,14 +114,16 @@
   // ---- rendering ----
 
   function connKey(c) {
-    return [c.protocol, c.src.addr, c.src.port, c.dst.addr, c.dst.port].join("|");
+    return [c.protocol, c.src.addr, c.src.folded ? "*" : c.src.port,
+            c.dst.addr, c.dst.folded ? "*" : c.dst.port].join("|");
   }
 
   function setEnd(el, end) {
     el.querySelector(".name").textContent = end.host || end.addr || "*";
-    el.querySelector(".port").textContent =
+    el.querySelector(".port").textContent = end.folded ? "*" :
       end.port == null ? "" : (end.service && end.service !== String(end.port) ? end.service : String(end.port));
-    const tip = [end.addr, end.port == null ? null : "port " + end.port].filter(Boolean).join(", ");
+    const tip = [end.addr, end.folded ? "client ports folded" : end.port == null ? null : "port " + end.port]
+      .filter(Boolean).join(", ");
     el.title = end.host ? end.host + " (" + tip + ")" : tip;
   }
 
@@ -155,6 +159,9 @@
       setEnd(row.querySelector(".end.src"), c.src);
       setEnd(row.querySelector(".end.dst"), c.dst);
       row.querySelector(".proto").textContent = c.proto;
+      const merged = row.querySelector(".merged");
+      merged.textContent = c.merged > 1 ? "×" + c.merged : "";
+      merged.title = c.merged > 1 ? c.merged + " connections" : "";
       setRates(row, c.sent_rate, c.recv_rate, idx);
       frag.appendChild(row);
     }
@@ -168,6 +175,7 @@
         othersRow.classList.add("others");
         othersRow.querySelector(".end.dst").remove();
         othersRow.querySelector(".proto").remove();
+        othersRow.querySelector(".merged").remove();
       }
       othersRow.querySelector(".end.src .name").textContent =
         data.others.count + " other connection" + (data.others.count === 1 ? "" : "s");
@@ -192,8 +200,11 @@
     els.conns.replaceChildren(frag);
 
     const filtered = data.matched !== data.count ? " (" + data.matched + " match the filter)" : "";
+    const what = data.fold
+      ? " rows (" + data.connection_count + " connections, client ports folded)"
+      : " connections";
     els.footer.textContent =
-      "Showing " + data.shown + " of " + data.count + " connections" + filtered +
+      "Showing " + data.shown + " of " + data.count + what + filtered +
       " · bar scale " + formatRate(scaleMax() / 8) + " (" + els.scaleMode.value + ")";
   }
 
@@ -262,6 +273,7 @@
       limit: visibleLimit(),
       window: els.window.value,
       sort: els.sort.value,
+      fold: els.fold.value,
       filter: els.filter.value.trim(),
     });
     try {
@@ -295,7 +307,7 @@
     clearTimeout(filterTimer);
     filterTimer = setTimeout(poll, 300);
   });
-  for (const k of ["window", "sort"]) {
+  for (const k of ["window", "sort", "fold"]) {
     els[k].addEventListener("change", () => { saveSettings(); poll(); });
   }
   for (const k of ["scaleMode", "units"]) {

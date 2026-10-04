@@ -91,6 +91,14 @@ with two bars each: sent (src → dst) and received. The rest are summed in an
 "others" row. Filtering, sorting and the limit are done by the server, so the
 page stays fast with many connections. Click the scale to reset it.
 
+"Client ports: folded" merges connections that differ only in the client's
+(ephemeral) port into one row, shown with `:*` and a connection count. Which
+side is the client is decided by the rules in `../PLAN.md` (stage 2), using
+`server_ports` and `ephemeral_port_min` from the config. Folding happens
+before sorting, so many small connections to one server can rank above a
+single large one. The filter then matches the folded rows: a client port no
+longer matches.
+
 `GET /api/live` parameters:
 
 | Parameter | Values | Default |
@@ -99,6 +107,7 @@ page stays fast with many connections. Click the scale to reset it.
 | `window` | averaging window: `2`, `10`, `40` (seconds) | `2` |
 | `sort` | `total`, `sent`, `recv` | `total` |
 | `filter` | words that must all appear in host, IP, port, service or protocol | none |
+| `fold` | `1`: merge connections that differ only in the client port | `0` |
 
 Rates are in bytes per second. `stale` is true when the snapshot is more than
 10 seconds old.

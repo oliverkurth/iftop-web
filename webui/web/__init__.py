@@ -47,7 +47,7 @@ def create_app(cfg=None, secret_key=None, testing=False):
     users = UserStore(web.users_db)
     users.init()
     app.extensions["iftop_users"] = users
-    app.extensions["iftop_live"] = SnapshotCache(cfg.live_path)
+    app.extensions["iftop_live"] = SnapshotCache(cfg.live_path, cfg.server_ports, cfg.ephemeral_port_min)
 
     csrf.init_app(app)
     limiter.init_app(app)

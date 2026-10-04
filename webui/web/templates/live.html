@@ -18,6 +18,12 @@
         <option value="recv">received</option>
       </select>
     </label>
+    <label title="Merge connections that differ only in the client's (ephemeral) port">Client ports
+      <select id="fold">
+        <option value="0">separate</option>
+        <option value="1">folded</option>
+      </select>
+    </label>
     <label>Scale
       <select id="scale-mode">
         <option value="lin">linear</option>
@@ -61,7 +67,7 @@
 <template id="conn-template">
   <div class="conn">
     <div class="label">
-      <div class="end src"><span class="name"></span><span class="port"></span><span class="proto"></span></div>
+      <div class="end src"><span class="name"></span><span class="port"></span><span class="proto"></span><span class="merged"></span></div>
       <div class="end dst"><span class="name"></span><span class="port"></span></div>
     </div>
     <div class="track">

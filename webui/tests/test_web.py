@@ -207,3 +207,90 @@ def test_live_page(logged_in):
     assert 'data-api="/api/live"' in page
     assert "live.js" in page
     assert logged_in.get("/static/live.js").status_code == 200
+
+
+# ---- folding client ports ----
+
+def _conn(src_port, dst_port, sent, recv, dst_service=None, src_addr="10.0.0.1", dst_addr="10.0.0.2", proto=6):
+    return {
+        "src": {"addr": src_addr, "host": None, "port": src_port, "service": str(src_port)},
+        "dst": {"addr": dst_addr, "host": "server", "port": dst_port, "service": dst_service or str(dst_port)},
+        "protocol": proto,
+        "sent_rate": [sent, sent, sent], "recv_rate": [recv, recv, recv],
+        "total_sent": sent, "total_recv": recv,
+    }
+
+
+def test_fold_merges_client_ports(logged_in, live_file):
+    snap = json.loads(sample_lines()[-1])
+    snap["connections"] = [
+        _conn(40001, 443, 10, 100, "https"),
+        _conn(40002, 443, 20, 200, "https"),
+        _conn(40003, 443, 30, 300, "https"),
+        _conn(40004, 443, 1, 1, "https", proto=17),     # other protocol
+        _conn(40005, 443, 1, 1, "https", src_addr="10.0.0.9"),  # other client
+        _conn(2000, 3000, 5, 5),                          # nothing to fold
+    ]
+    live_file(snap)
+
+    data = logged_in.get("/api/live").get_json()
+    assert data["fold"] is False and data["count"] == 6
+
+    data = logged_in.get("/api/live?fold=1").get_json()
+    assert data["fold"] is True
+    assert data["count"] == 4 and data["connection_count"] == 6
+    top = data["connections"][0]
+    assert top["merged"] == 3
+    assert top["src"] == {"addr": "10.0.0.1", "host": None, "port": None, "service": None, "folded": True}
+    assert top["dst"]["port"] == 443
+    assert top["sent_rate"] == [60, 60, 60] and top["recv_rate"] == [600, 600, 600]
+    assert top["total_sent"] == 60 and top["total_recv"] == 600
+    unfolded = [c for c in data["connections"] if c["src"]["port"] == 2000]
+    assert len(unfolded) == 1 and unfolded[0]["merged"] == 1
+
+
+def test_fold_changes_the_top_n(logged_in, live_file):
+    """Many small connections to one server outrank one big one once folded."""
+    snap = json.loads(sample_lines()[-1])
+    snap["connections"] = [_conn(41000 + i, 443, 10, 10, "https") for i in range(20)]
+    snap["connections"].append(_conn(2000, 5000, 0, 150, dst_addr="10.0.0.3"))
+    live_file(snap)
+
+    data = logged_in.get("/api/live?limit=1").get_json()
+    assert data["connections"][0]["dst"]["addr"] == "10.0.0.3"
+    data = logged_in.get("/api/live?limit=1&fold=1").get_json()
+    assert data["connections"][0]["merged"] == 20
+    assert data["others"] == {"count": 1, "sent": 0, "recv": 150}
+
+
+def test_fold_uses_configured_server_ports(cfg, live_file):
+    cfg.server_ports = [51820]
+    app = create_app(cfg, secret_key="test-secret-key-0123456789", testing=True)
+    app.config["WTF_CSRF_ENABLED"] = False
+    app.extensions["iftop_users"].add("bob", PASSWORD)
+    client = app.test_client()
+    client.post("/login", data={"username": "bob", "password": PASSWORD})
+
+    snap = json.loads(sample_lines()[-1])
+    # Without server_ports, 51820 would be folded as the higher port.
+    snap["connections"] = [_conn(51820, 40000 + i, 1, 1, proto=17) for i in range(3)]
+    live_file(snap)
+    data = client.get("/api/live?fold=1").get_json()
+    assert data["count"] == 1
+    row = data["connections"][0]
+    assert row["src"]["port"] == 51820 and row["dst"]["folded"] is True
+
+
+def test_fold_on_recorded_data(logged_in, live_file):
+    snap = live_file()
+    data = logged_in.get("/api/live?fold=1&limit=1000").get_json()
+    assert data["connection_count"] == len(snap["connections"])
+    assert data["count"] < data["connection_count"]
+    assert sum(c["merged"] for c in data["connections"]) == data["connection_count"]
+    for kind in ("sent", "recv"):
+        assert sum(c[f"{kind}_rate"][0] for c in data["connections"]) == _all_sum(snap, kind, 0)
+    # The filter applies to the folded rows.
+    data = logged_in.get("/api/live?fold=1&filter=http-alt").get_json()
+    assert data["count"] > 0 and data["matched"] >= 1
+    assert all(c["src"].get("service") == "http-alt" or c["dst"].get("service") == "http-alt"
+               for c in data["connections"])
