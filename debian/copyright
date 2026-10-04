@@ -45,6 +45,19 @@ Comment:
  paragraph in its entirety. See also:
  ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change
 
+Files: jsondump/*
+Copyright: 2022-2023, VMware, Inc.
+License: GPL-2
+
+Files: webui/*
+       debian/bin/*
+       debian/conf/*
+       debian/systemd/*
+       debian/iftop-json.8
+       debian/iftop-web*
+Copyright: 2026, Oliver Kurth <okurth@gmail.com>
+License: GPL-2+
+
 Files: debian/*
 Copyright: 2002-2004, christophe barbe <christophe@debian.org>
            2005-2009, Daniel Baumann <daniel@debian.org>
@@ -68,6 +81,19 @@ License: GPL-2+
  .
  On Debian systems, the complete text of the GNU General Public License
  can be found in /usr/share/common-licenses/GPL-2 file.
+
+License: GPL-2
+ This program is free software; you can redistribute it and/or
+ modify it under the terms of the GNU General Public License
+ version 2 as published by the Free Software Foundation.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ GNU General Public License for more details.
+ .
+ On Debian systems, the complete text of the GNU General Public License
+ version 2 can be found in /usr/share/common-licenses/GPL-2 file.
 
 License: BSD-2-clause
  Copyright (c) 1998, Larry Lile

@@ -1,0 +1,44 @@
+[Unit]
+Description=iftop traffic collector for iftop-web
+Documentation=file:///usr/share/doc/iftop-web/README.Debian
+# iftop captures nothing if it opens an interface while it is coming up.
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=_iftop-collector
+Group=_iftop-collector
+Environment=IFTOP_WEB_CONFIG=/etc/iftop-web/config.toml PYTHONDONTWRITEBYTECODE=1
+WorkingDirectory=/usr/share/iftop-web
+ExecStart=/usr/bin/python3 -m collector
+Restart=on-failure
+RestartSec=5
+
+# Packet capture needs these two capabilities, and nothing else.
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+StateDirectory=iftop-collector
+StateDirectoryMode=0755
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_PACKET AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0022
+
+[Install]
+WantedBy=multi-user.target

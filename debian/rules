@@ -3,9 +3,30 @@
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 export DEB_CFLAGS_MAINT_APPEND = -DNO_SYSTEM -Wall -DUSE_GETNAMEINFO=1 -DUSE_GETIFADDRS=1 -fcommon
 export DEB_LDFLAGS_MAINT_APPEND = -Wl,-z,defs
+export PYTHONDONTWRITEBYTECODE = 1
 
 %:
 	dh $@
 
 override_dh_auto_install:
-	dh_auto_install -- DESTDIR=$(CURDIR)/debian/iftop
+	# The program is installed as iftop-json, next to the interactive iftop.
+	install -D -m 0755 iftop debian/iftop-json/usr/sbin/iftop-json
+
+override_dh_auto_test:
+	dh_auto_test
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	cd webui && python3 -m pytest -q -p no:cacheprovider
+endif
+
+override_dh_install:
+	dh_install
+	find debian/iftop-web -name __pycache__ -prune -exec rm -rf {} +
+
+execute_after_dh_auto_clean:
+	find webui -name __pycache__ -prune -exec rm -rf {} +
+	rm -rf webui/.pytest_cache
+
+# Not in the default sequence before compat 14. Runs before dh_installtmpfiles
+# so the users exist when postinst creates their directories.
+execute_before_dh_installtmpfiles:
+	dh_installsysusers

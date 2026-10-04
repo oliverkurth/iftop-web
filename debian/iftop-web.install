@@ -1,0 +1,9 @@
+webui/collector usr/share/iftop-web
+webui/common usr/share/iftop-web
+webui/web usr/share/iftop-web
+webui/wsgi.py usr/share/iftop-web
+webui/gunicorn.conf.py usr/share/iftop-web
+debian/conf/config.toml etc/iftop-web
+debian/bin/iftop-web-user usr/sbin
+debian/systemd/iftop-collector.service usr/lib/systemd/system
+debian/systemd/iftop-web.service usr/lib/systemd/system

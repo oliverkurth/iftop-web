@@ -1,0 +1,35 @@
+# Configuration of iftop-web: the collector (iftop-collector.service) and the
+# web interface (iftop-web.service). Restart both after changes:
+#   systemctl restart iftop-collector iftop-web
+# See /usr/share/doc/iftop-web/README.Debian.
+
+# Interface to watch; at most one for now. Empty: iftop picks the first
+# running interface.
+interfaces = []
+
+# Extra iftop-json arguments, e.g. a pcap filter: ["-f", "not port 22"].
+# -i and -P are passed by the collector.
+iftop_args = []
+
+# Servers listening on high ports, so their port is kept and the clients'
+# ports are folded (e.g. WireGuard): [51820]
+server_ports = []
+# Otherwise the higher port is treated as the client's if it is at least this.
+ephemeral_port_min = 32768
+
+[web]
+# Plain HTTP is only allowed on localhost. To listen on other addresses, set
+# certfile and keyfile (readable by the _iftop-web user), or put a TLS proxy in
+# front and set insecure_http = true and proxy_fix = true.
+bind = "127.0.0.1:8000"
+#bind = "0.0.0.0:8443"
+#certfile = "/etc/iftop-web/cert.pem"
+#keyfile = "/etc/iftop-web/key.pem"
+#insecure_http = false
+#proxy_fix = false
+
+# Session cookies are only sent over HTTPS (browsers also accept them on
+# http://localhost).
+#cookie_secure = true
+#session_timeout_minutes = 60
+#login_rate_limit = "5 per minute"

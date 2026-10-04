@@ -4,19 +4,50 @@ Priority: optional
 Maintainer: Markus Koschany <apo@debian.org>
 Build-Depends:
  debhelper-compat (= 13),
- libpcap0.8-dev
+ libpcap0.8-dev,
+ python3 <!nocheck>,
+ python3-flask <!nocheck>,
+ python3-flask-limiter <!nocheck>,
+ python3-flask-login <!nocheck>,
+ python3-flaskext.wtf <!nocheck>,
+ python3-pytest <!nocheck>
 Standards-Version: 4.7.2
 Homepage: https://www.ex-parrot.com/~pdw/iftop/
 Vcs-Git: https://salsa.debian.org/debian/iftop.git
 Vcs-Browser: https://salsa.debian.org/debian/iftop
 
-Package: iftop
+Package: iftop-json
 Architecture: any
 Depends:
  ${misc:Depends},
  ${shlibs:Depends}
-Description: displays bandwidth usage information on an network interface
- iftop does for network usage what top(1) does for CPU usage. It listens to
- network traffic on a named interface and displays a table of current bandwidth
- usage by pairs of hosts. Handy for answering the question "Why is my Internet
- link so slow?".
+Description: bandwidth usage per connection on a network interface, as JSON
+ iftop listens to network traffic on a named interface and works out the
+ bandwidth used by each pair of hosts. This variant has no interactive
+ display: every two seconds it writes the current statistics to standard
+ output as one line of JSON, with the rates averaged over 2, 10 and 40
+ seconds for every connection, plus the interface totals.
+ .
+ It is used by iftop-web, and can be installed next to the interactive iftop.
+
+Package: iftop-web
+Architecture: all
+Depends:
+ gunicorn,
+ iftop-json (>= ${source:Version}),
+ python3 (>= 3.11),
+ python3-flask,
+ python3-flask-limiter,
+ python3-flask-login,
+ python3-flaskext.wtf,
+ ${misc:Depends}
+Description: web interface showing live bandwidth usage per connection
+ A web interface for iftop-json. A collector service runs iftop-json and keeps
+ its latest output; a web service shows the connections with the most traffic
+ as bars for sent and received data, updated every two seconds. Connections
+ can be filtered, sorted by averaging window, and grouped by folding client
+ ports.
+ .
+ All pages require a login. Users are managed with iftop-web-user. The web
+ service listens on localhost by default; listening on other addresses
+ requires TLS.

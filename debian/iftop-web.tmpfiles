@@ -1,0 +1,3 @@
+# Created at install time too, so iftop-web-user works before the first start.
+d /var/lib/iftop-collector 0755 _iftop-collector _iftop-collector -
+d /var/lib/iftop-web 0700 _iftop-web _iftop-web -

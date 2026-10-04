@@ -1,0 +1,71 @@
+iftop-web for Debian
+====================
+
+Two services are installed, enabled and started:
+
+ iftop-collector  runs iftop-json as the _iftop-collector user (with only the
+                  CAP_NET_RAW and CAP_NET_ADMIN capabilities) and writes the
+                  latest snapshot to /var/lib/iftop-collector/live.json.
+ iftop-web        runs the web interface under gunicorn as the _iftop-web
+                  user, on http://127.0.0.1:8000/ by default.
+
+Both read /etc/iftop-web/config.toml. Restart them after changing it:
+
+  systemctl restart iftop-collector iftop-web
+
+
+First steps
+-----------
+
+1. Create a user. There is no default account:
+
+     iftop-web-user add alice
+
+2. Choose the interface. By default iftop picks the first running one:
+
+     interfaces = ["eth0"]
+
+3. Open http://127.0.0.1:8000/ on the server, or through an SSH tunnel:
+
+     ssh -L 8000:127.0.0.1:8000 server
+
+
+Listening on other addresses
+----------------------------
+
+Plain HTTP is only allowed on localhost; iftop-web refuses to start
+otherwise. Either:
+
+ * give it a certificate, readable by _iftop-web:
+
+     [web]
+     bind = "0.0.0.0:8443"
+     certfile = "/etc/iftop-web/cert.pem"
+     keyfile = "/etc/iftop-web/key.pem"
+
+   Port 443 works too; the service may bind ports below 1024.
+
+ * or put a TLS-terminating reverse proxy in front, and set
+
+     [web]
+     bind = "127.0.0.1:8000"
+     insecure_http = true
+     proxy_fix = true
+
+   proxy_fix makes the login rate limit see the clients' addresses instead of
+   the proxy's.
+
+
+Files
+-----
+
+ /etc/iftop-web/config.toml            configuration
+ /var/lib/iftop-collector/live.json    latest snapshot (readable by everyone)
+ /var/lib/iftop-web/users.db           users (scrypt password hashes)
+ /var/lib/iftop-web/secret_key         signs session cookies; created on first
+                                       start. Deleting it logs everybody out.
+
+Purging the package removes /var/lib/iftop-collector and /var/lib/iftop-web.
+The system users are kept.
+
+/usr/share/doc/iftop-web/README.md describes the web interface and its API.

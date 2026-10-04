@@ -1,3 +1,17 @@
+iftop (1.0~pre4-10+json1) UNRELEASED; urgency=medium
+
+  * Replace the interactive display with JSON output, one line every two
+    seconds, and report numeric addresses separately from host names.
+  * Rename the binary package to iftop-json, installing /usr/sbin/iftop-json,
+    so it can be installed next to iftop.
+  * Drop support-multi-gigabit-interfaces.patch: it only changed the bar
+    scale of the removed ncurses display.
+  * New binary package iftop-web: web interface showing live bandwidth usage
+    per connection, with a collector service running iftop-json and a web
+    service under gunicorn.
+
+ -- Oliver Kurth <okurth@gmail.com>  Sun, 04 Oct 2026 14:10:16 -0700
+
 iftop (1.0~pre4-10) unstable; urgency=medium
 
   * Ack NMU by Florian Ernst. Thank you for the patch!

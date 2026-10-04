@@ -1,0 +1,87 @@
+.TH IFTOP-JSON 8 "October 2026" "iftop-json" "System Administration"
+.SH NAME
+iftop-json \- write bandwidth usage per connection as JSON
+.SH SYNOPSIS
+.B iftop-json
+[\fB\-hnNpPl\fR] [\fB\-i\fR \fIinterface\fR] [\fB\-f\fR \fIfilter code\fR]
+[\fB\-F\fR \fInet/mask\fR] [\fB\-G\fR \fInet6/mask6\fR] [\fB\-c\fR \fIconfig file\fR]
+.SH DESCRIPTION
+.B iftop-json
+listens to network traffic on an interface and works out the bandwidth used
+by each pair of hosts, like
+.BR iftop (8),
+but has no interactive display. Every two seconds it writes one line of JSON
+to standard output, until it is terminated.
+.PP
+Each line is an object with these keys:
+.TP
+.B timestamp
+Unix time of the sample.
+.TP
+.B interface
+The interface being watched.
+.TP
+.B connections
+A list with one object per connection:
+.BR src " and " dst
+(each with
+.B addr
+\(em the numeric address,
+.B host
+\(em the resolved name or null,
+.BR port " and " service ),
+.B protocol
+(IP protocol number),
+.BR sent_rate " and " recv_rate
+(bytes per second averaged over 2, 10 and 40 seconds), and
+.BR total_sent " and " total_recv
+(bytes).
+.TP
+.B totals
+The same rates and totals for the whole interface, plus
+.BR peak_sent_rate ", " peak_recv_rate " and " peak_total_rate .
+.PP
+Capturing packets requires root or the capabilities CAP_NET_RAW and
+CAP_NET_ADMIN.
+.SH OPTIONS
+.TP
+.B \-h
+Print a summary of the options.
+.TP
+.B \-n
+Don't look up host names.
+.TP
+.B \-N
+Don't convert port numbers to service names.
+.TP
+.B \-p
+Run in promiscuous mode, so traffic between other hosts is counted too.
+.TP
+.B \-P
+Report ports as well as hosts. Without it, connections are only told apart by
+their hosts.
+.TP
+.B \-l
+Include link-local IPv6 traffic.
+.TP
+.BI \-i " interface"
+Listen on the named interface. By default the first running interface is
+used.
+.TP
+.BI \-f " filter code"
+Only count packets matching the pcap filter, see
+.BR pcap-filter (7).
+.TP
+.BI \-F " net/mask"
+Report traffic flowing in and out of this IPv4 network.
+.TP
+.BI \-G " net6/mask6"
+Report traffic flowing in and out of this IPv6 network.
+.TP
+.BI \-c " config file"
+Read this configuration file instead of
+.IR ~/.iftoprc .
+.SH SEE ALSO
+.BR iftop (8),
+.BR iftop-web-user (8),
+.BR pcap-filter (7)

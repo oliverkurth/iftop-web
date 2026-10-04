@@ -1,0 +1,44 @@
+.TH IFTOP-WEB-USER 8 "October 2026" "iftop-web" "System Administration"
+.SH NAME
+iftop-web-user \- manage the users of the iftop web interface
+.SH SYNOPSIS
+.B iftop-web-user add
+.I name
+.br
+.B iftop-web-user passwd
+.I name
+.br
+.B iftop-web-user del
+.I name
+.br
+.B iftop-web-user list
+.SH DESCRIPTION
+Every page of the iftop web interface requires a login. There is no default
+account; users are created with this command. Run it as root; it switches to
+the
+.B _iftop-web
+user, which owns the users database.
+.TP
+.BI add " name"
+Create a user. The password is asked for twice and must be at least 10
+characters long.
+.TP
+.BI passwd " name"
+Change a user's password. This also logs out all of that user's sessions.
+.TP
+.BI del " name"
+Delete a user, which also ends their sessions.
+.TP
+.B list
+List the user names.
+.SH ENVIRONMENT
+.TP
+.B IFTOP_WEB_CONFIG
+The configuration file, by default
+.IR /etc/iftop-web/config.toml .
+.SH FILES
+.TP
+.I /var/lib/iftop-web/users.db
+The users database (SQLite). Passwords are stored as scrypt hashes.
+.SH SEE ALSO
+.BR iftop-json (8)

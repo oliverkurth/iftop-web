@@ -1,0 +1,13 @@
+#!/bin/sh
+# Manages iftop-web users: iftop-web-user add|passwd|del|list [NAME]
+set -e
+
+export IFTOP_WEB_CONFIG="${IFTOP_WEB_CONFIG:-/etc/iftop-web/config.toml}"
+export PYTHONDONTWRITEBYTECODE=1
+cd /usr/share/iftop-web
+
+if [ "$(id -u)" -eq 0 ]; then
+    # The users database belongs to the web service's user.
+    exec runuser -u _iftop-web -- python3 -m flask --app wsgi user "$@"
+fi
+exec python3 -m flask --app wsgi user "$@"

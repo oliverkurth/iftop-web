@@ -1,6 +1,5 @@
 MAC-address-format.patch
 iftop-cleanup.patch
-support-multi-gigabit-interfaces.patch
 bug-debian-962695-ipv6-dns-resolution.patch
 bug-debian-1096832-ftbfs-with-GCC-15.patch
 bug-debian-644998-IFF-RUNNING.patch

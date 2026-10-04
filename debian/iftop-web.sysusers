@@ -1,0 +1,2 @@
+u _iftop-collector - "iftop-web traffic collector" /var/lib/iftop-collector
+u _iftop-web - "iftop-web web interface" /var/lib/iftop-web
