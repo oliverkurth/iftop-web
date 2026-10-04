@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Log in · iftop{% endblock %}
+{% block content %}
+<form method="post" class="login" novalidate>
+  <h1>Log in</h1>
+  {% for message in get_flashed_messages() %}
+  <p class="error" role="alert">{{ message }}</p>
+  {% endfor %}
+  {{ form.hidden_tag() }}
+  <label>{{ form.username.label.text }}
+    {{ form.username(autocomplete="username", autofocus=true, required=true) }}
+  </label>
+  <label>{{ form.password.label.text }}
+    {{ form.password(autocomplete="current-password", required=true) }}
+  </label>
+  <button type="submit">Log in</button>
+</form>
+{% endblock %}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}iftop{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="topbar">
+    <span class="brand">iftop</span>
+    {% if current_user.is_authenticated %}
+    <nav class="nav">
+      <a href="{{ url_for('live.index') }}" {% if request.endpoint == 'live.index' %}aria-current="page"{% endif %}>Live</a>
+    </nav>
+    <span class="spacer"></span>
+    <span class="user">{{ current_user.username }}</span>
+    <form method="post" action="{{ url_for('auth.logout') }}" class="logout">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="link">Log out</button>
+    </form>
+    {% endif %}
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

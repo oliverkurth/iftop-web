@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Live · iftop{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='live.js') }}" defer></script>{% endblock %}
+{% block content %}
+<div class="live" data-api="{{ url_for('live.api_live') }}" data-login="{{ url_for('auth.login', next=url_for('live.index')) }}">
+  <div class="controls">
+    <label>Average
+      <select id="window">
+        <option value="2">2 s</option>
+        <option value="10">10 s</option>
+        <option value="40">40 s</option>
+      </select>
+    </label>
+    <label>Sort
+      <select id="sort">
+        <option value="total">sent + received</option>
+        <option value="sent">sent</option>
+        <option value="recv">received</option>
+      </select>
+    </label>
+    <label>Scale
+      <select id="scale-mode">
+        <option value="lin">linear</option>
+        <option value="log">log</option>
+      </select>
+    </label>
+    <label>Units
+      <select id="units">
+        <option value="bits">bits/s</option>
+        <option value="bytes">bytes/s</option>
+      </select>
+    </label>
+    <label class="filter">Filter
+      <input id="filter" type="search" placeholder="host, IP, port, service, protocol" autocomplete="off" spellcheck="false">
+    </label>
+    <span id="status" class="status" role="status"></span>
+  </div>
+
+  <table class="totals" aria-label="Interface totals">
+    <thead>
+      <tr><th></th><th>2 s</th><th>10 s</th><th>40 s</th><th>cumulative</th><th>peak</th></tr>
+    </thead>
+    <tbody id="totals">
+      <tr data-kind="sent"><th>sent</th><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr data-kind="recv"><th>received</th><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr data-kind="total"><th>total</th><td></td><td></td><td></td><td></td><td></td></tr>
+    </tbody>
+  </table>
+
+  <div class="conn scale-row" aria-hidden="true">
+    <div class="label"></div>
+    <div class="track" id="ticks"></div>
+    <div class="rates head"><span>2 s</span><span>10 s</span><span>40 s</span></div>
+  </div>
+
+  <div id="conns" class="conns" aria-live="off"></div>
+
+  <footer id="footer" class="footer"></footer>
+</div>
+
+<template id="conn-template">
+  <div class="conn">
+    <div class="label">
+      <div class="end src"><span class="name"></span><span class="port"></span><span class="proto"></span></div>
+      <div class="end dst"><span class="name"></span><span class="port"></span></div>
+    </div>
+    <div class="track">
+      <div class="bar sent"></div>
+      <div class="bar recv"></div>
+    </div>
+    <div class="rates">
+      <div class="sent"><span></span><span></span><span></span></div>
+      <div class="recv"><span></span><span></span><span></span></div>
+    </div>
+  </div>
+</template>
+{% endblock %}

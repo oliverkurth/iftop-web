@@ -1,0 +1,41 @@
+# iftop web interface configuration.
+# Default location: /etc/iftop-web/config.toml (override with $IFTOP_WEB_CONFIG
+# or the collector's --config option).
+
+# Exactly one interface for now.
+interfaces = ["eth0"]
+
+iftop = "/usr/sbin/iftop"
+# Extra iftop arguments, e.g. a pcap filter: ["-f", "not port 22"].
+# -i and -P are always passed by the collector.
+iftop_args = []
+
+# Written by the collector (root), read by the web app.
+datadir = "/var/lib/iftop-web"
+
+# Stage 2: ports at or above this are folded into "*" when the other side is a
+# well-known port.
+ephemeral_port_min = 32768
+
+[retention]
+minute_days = 7
+hour_days = 365
+
+[web]
+bind = "0.0.0.0:8443"
+certfile = "/etc/iftop-web/cert.pem"
+keyfile = "/etc/iftop-web/key.pem"
+# Allow plain HTTP on a non-local address, e.g. behind a TLS proxy.
+insecure_http = false
+# Set when running behind a reverse proxy, so client IPs (used for the login
+# rate limit) and the scheme are taken from X-Forwarded-* headers.
+proxy_fix = false
+# Session cookies are only sent over HTTPS. Set to false only for plain-HTTP
+# testing on localhost.
+cookie_secure = true
+session_timeout_minutes = 60
+# Create with: head -c 32 /dev/urandom | base64 > /etc/iftop-web/secret_key
+secret_key_file = "/etc/iftop-web/secret_key"
+# Owned by the web app's user; separate from datadir.
+users_db = "/var/lib/iftop-web/users/users.db"
+login_rate_limit = "5 per minute"
