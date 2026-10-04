@@ -58,19 +58,32 @@ static void port_name(char *buf, unsigned int port, unsigned int protocol) {
     }
 }
 
-/* Builds the JSON map describing one end of a connection. */
+/*
+ * Builds the JSON map describing one end of a connection.  "addr" is always
+ * the numeric address, "host" the resolved name or null if there is none
+ * (resolution disabled, pending or failed).  Both are null if the address
+ * was aggregated away.
+ */
 static struct json_dump *endpoint_json(int af, struct in6_addr *addr, unsigned int port, unsigned int protocol) {
     struct json_dump *jd = jd_create(0);
-    char name[HOSTNAME_LENGTH];
+    char name[HOSTNAME_LENGTH], numeric[INET6_ADDRSTRLEN];
 
     if(jd == NULL || jd_map_start(jd) != 0) {
         jd_destroy(jd);
         return NULL;
     }
-    if(host_name(name, af, addr)) {
-        jd_map_add_string(jd, "host", name);
+    if(!IN6_IS_ADDR_UNSPECIFIED(addr) && inet_ntop(af, addr, numeric, sizeof numeric) != NULL) {
+        jd_map_add_string(jd, "addr", numeric);
+        /* The resolver returns the numeric address until a name is known. */
+        if(host_name(name, af, addr) && strcmp(name, numeric) != 0) {
+            jd_map_add_string(jd, "host", name);
+        }
+        else {
+            jd_map_add_null(jd, "host");
+        }
     }
     else {
+        jd_map_add_null(jd, "addr");
         jd_map_add_null(jd, "host");
     }
     if(port != 0) {
