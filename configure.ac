@@ -342,37 +342,6 @@ if test $foundpcap = 0 ; then
 fi
 
 dnl
-dnl Curses. Really, we need ncurses or something similarly advanced, since
-dnl we use the (apparently obscure) mvchgat function. Unfortunately, there's
-dnl a solid chance that mvchgat is a macro, so we can't just use
-dnl AC_SEARCH_LIBS....
-dnl
-
-AC_MSG_CHECKING([for a curses library containing mvchgat])
-oldLIBS=$LIBS
-for curseslib in ncursesw curses ncurses ; do
-    LIBS="$oldLIBS -l$curseslib"
-    AC_TRY_LINK([
-#include <$curseslib.h>
-        ], [
-        mvchgat(0, 0, 1, A_REVERSE, 0, NULL)
-        ], [
-        foundcurseslib=$curseslib
-        break
-        ])
-done
-
-if test x$foundcurseslib = x ; then
-    AC_MSG_RESULT([none found])
-    AC_MSG_ERROR([Curses! Foiled again!
-  (Can't find a curses library supporting mvchgat.)
-  Consider installing ncurses.])
-else
-    AC_MSG_RESULT([-l$foundcurseslib])
-fi
-
-
-dnl
 dnl POSIX threads. Different systems like different combinations of flags,
 dnl libraries, etc. We use a test program to figure this stuff out.
 dnl

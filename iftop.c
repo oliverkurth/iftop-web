@@ -23,7 +23,6 @@
 #endif
 
 #include <pthread.h>
-#include <curses.h>
 #include <signal.h>
 #include <string.h>
 #include <unistd.h>

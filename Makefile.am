@@ -13,9 +13,9 @@
 sbin_PROGRAMS = iftop 
 #iftop-dump
 
-iftop_SOURCES = addr_hash.c edline.c hash.c iftop.c ns_hash.c \
+iftop_SOURCES = addr_hash.c hash.c iftop.c ns_hash.c \
                  options.c resolver.c screenfilter.c serv_hash.c \
-                 sorted_list.c threadprof.c ui_common.c ui.c tui.c util.c \
+                 sorted_list.c threadprof.c ui_common.c ui.c tui.c util.c jsondump/jsondump.c \
 		 addrs_ioctl.c addrs_dlpi.c dlcommon.c \
 		 stringmap.c cfgfile.c vector.c
 
