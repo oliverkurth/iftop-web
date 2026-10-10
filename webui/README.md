@@ -55,11 +55,20 @@ curl, add `-e https://host:port/login`.
 
 There is no default account and no self-signup.
 
+With the Debian package installed, use the wrapper (as root):
+
 ```sh
-sudo -u iftop-web flask --app wsgi user add alice      # asks for the password
-sudo -u iftop-web flask --app wsgi user passwd alice   # also logs out alice's sessions
-sudo -u iftop-web flask --app wsgi user del alice
-sudo -u iftop-web flask --app wsgi user list
+sudo iftop-web-user add alice      # asks for the password
+sudo iftop-web-user passwd alice   # also logs out alice's sessions
+sudo iftop-web-user del alice
+sudo iftop-web-user list
+```
+
+From the source tree, run Flask in this `webui/` directory; `--app wsgi`
+loads `wsgi.py` from the current directory:
+
+```sh
+sudo -u iftop-web flask --app wsgi user add alice
 ```
 
 Set `IFTOP_WEB_CONFIG` if the config is not at `/etc/iftop-web/config.toml`.
