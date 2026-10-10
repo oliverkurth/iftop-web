@@ -121,6 +121,24 @@ longer matches.
 Rates are in bytes per second. `stale` is true when the snapshot is more than
 10 seconds old.
 
+## Building the Debian packages
+
+From the top directory:
+
+```sh
+debian/bin/build-deb
+```
+
+This runs `dpkg-buildpackage -us -uc -b` (unsigned, binary only) and appends
+the git short sha to the package version, for example
+`1.0~pre4-10+json1+git6784659`; `dirty` follows the sha if tracked files have
+uncommitted changes. `debian/changelog` is restored afterwards. Extra
+arguments are passed to `dpkg-buildpackage`.
+
+The build itself rewrites the tracked `INSTALL` and `config/*` files
+(autoreconf), so run `git checkout INSTALL config/` before the next build if
+you want it to be reported as clean.
+
 ## Tests
 
 ```sh

@@ -1,0 +1,19 @@
+#!/bin/sh
+# Build the Debian packages with the git short sha appended to the version,
+# e.g. 1.0~pre4-10+json1 becomes 1.0~pre4-10+json1+git6784659.
+# debian/changelog is restored afterwards. Extra arguments go to
+# dpkg-buildpackage.
+set -e
+cd "$(dirname "$0")/../.."
+
+sha=$(git rev-parse --short HEAD)
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    sha="${sha}dirty"
+fi
+
+cp debian/changelog debian/changelog.orig
+trap 'mv debian/changelog.orig debian/changelog' EXIT
+
+sed -i "1s/^\(iftop (\)\([^)]*\))/\1\2+git$sha)/" debian/changelog
+dpkg-parsechangelog -SVersion
+dpkg-buildpackage -us -uc -b "$@"
