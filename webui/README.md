@@ -130,6 +130,8 @@ From the top directory:
 debian/bin/build-deb
 ```
 
+or, in a configured tree (`./bootstrap && ./configure`), `make deb`.
+
 This runs `dpkg-buildpackage -us -uc -b` (unsigned, binary only) and appends
 the git short sha to the package version, for example
 `1.0~pre4-10+json1+git6784659`; `dirty` follows the sha if tracked files have

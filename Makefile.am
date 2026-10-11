@@ -43,6 +43,12 @@ iftop.cat: iftop.8
 iftop.spec: iftop.spec.in configure.in
 	sed 's/__VERSION__/$(PACKAGE_VERSION)/' < iftop.spec.in > iftop.spec
 
+# Build the Debian packages (in a temporary copy; the files are written to the
+# parent directory).
+.PHONY: deb
+deb:
+	$(top_srcdir)/debian/bin/build-deb
+
 ## These need to be distributed along with configure:
 
 EXTRA_DIST = bootstrap README ChangeLog AUTHORS COPYING INSTALL TODO \
