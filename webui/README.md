@@ -6,8 +6,9 @@ See `../PLAN.md` for the full plan; stages 1 and 2 are done.
 Two processes:
 
 - **collector** (root): runs `iftop -i <interface> -P`, reads its JSON lines,
-  writes the latest snapshot to `<datadir>/live.json` and adds the traffic to
-  the history in `<datadir>/iftop.db`. Restarts iftop if it exits.
+  writes the latest snapshot to `<rundir>/live.json` (default
+  `/run/iftop-collector`, a tmpfs) and adds the traffic to the history in
+  `<datadir>/iftop.db`. Restarts iftop if it exits.
 - **web app** (unprivileged user, gunicorn): login, the live and history
   pages, `/api/live` and `/api/agg`. Only reads the collector's files; needs
   no access to the network interfaces.

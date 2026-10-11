@@ -46,6 +46,9 @@ class Config:
     iftop: str = "/usr/sbin/iftop-json"
     iftop_args: list[str] = field(default_factory=list)
     datadir: str = "/var/lib/iftop-collector"
+    # The live snapshot, rewritten every 2 s; /run is a tmpfs, which spares
+    # flash storage.
+    rundir: str = "/run/iftop-collector"
     ephemeral_port_min: int = 32768
     server_ports: list[int] = field(default_factory=list)
     retention: RetentionConfig = field(default_factory=RetentionConfig)
@@ -57,7 +60,7 @@ class Config:
 
     @property
     def live_path(self):
-        return os.path.join(self.datadir, "live.json")
+        return os.path.join(self.rundir, "live.json")
 
     @property
     def db_path(self):

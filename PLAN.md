@@ -39,8 +39,8 @@ iftop -P ... (root / CAP_NET_RAW)
    │ JSON lines on stdout
    ▼
 collector.py  (one daemon; starts iftop and owns it; runs as root)
-   ├── live snapshot  → <datadir>/live.json   (temp file + rename)
-   └── aggregates     → <datadir>/iftop.db    (SQLite, WAL)    [stage 2]
+   ├── live snapshot  → <rundir>/live.json    (temp file + rename; /run tmpfs)
+   └── aggregates     → <datadir>/iftop.db    (SQLite)         [stage 2]
    ▼
 Flask app under gunicorn (unprivileged user, data directory read-only)
    ├── /login, /logout

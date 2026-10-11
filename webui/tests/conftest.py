@@ -25,6 +25,7 @@ def cfg(tmp_path):
     return config_mod.from_dict({
         "interfaces": ["lo"],
         "datadir": str(tmp_path / "data"),
+        "rundir": str(tmp_path / "run"),
         "web": {
             "users_db": str(tmp_path / "users" / "users.db"),
             "cookie_secure": False,
@@ -40,7 +41,7 @@ def live_file(cfg):
         if snap is None:
             snap = json.loads(sample_lines()[-1])
         snap = dict(snap, timestamp=int(time.time()) - age)
-        os.makedirs(cfg.datadir, exist_ok=True)
+        os.makedirs(cfg.rundir, exist_ok=True)
         tmp = cfg.live_path + ".tmp"
         with open(tmp, "w") as f:
             json.dump(snap, f)

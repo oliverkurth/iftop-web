@@ -10,8 +10,11 @@ iftop = "/usr/sbin/iftop-json"
 # -i and -P are always passed by the collector.
 iftop_args = []
 
-# Written by the collector, read by the web app.
+# Written by the collector, read by the web app: the history in datadir, the
+# live snapshot (rewritten every 2 s) in rundir. Keep rundir on a tmpfs such as
+# /run, so the snapshot never wears out flash storage.
 datadir = "/var/lib/iftop-collector"
+rundir = "/run/iftop-collector"
 
 # Stage 2: how the client side of a connection is found, so its port can be
 # stored as "*" (see PLAN.md). Ports of servers that listen on high ports:

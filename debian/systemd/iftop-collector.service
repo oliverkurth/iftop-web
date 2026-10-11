@@ -20,6 +20,11 @@ AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
 CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
 StateDirectory=iftop-collector
 StateDirectoryMode=0755
+# live.json, rewritten every 2 s, lives on the /run tmpfs. Kept when the
+# service stops, so the web page can say how old the last snapshot is.
+RuntimeDirectory=iftop-collector
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes

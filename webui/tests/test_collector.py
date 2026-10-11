@@ -4,6 +4,7 @@ import subprocess
 import sys
 import threading
 
+from common import config as config_mod
 from conftest import SAMPLE, WEBUI, sample_lines
 from collector.collector import Collector, LiveWriter, consume, parse_line
 
@@ -38,7 +39,7 @@ def test_consume_keeps_last_valid_snapshot(tmp_path):
 
 def test_stdin_mode(tmp_path, cfg):
     config = tmp_path / "config.toml"
-    config.write_text(f'interfaces = ["lo"]\ndatadir = "{cfg.datadir}"\n')
+    config.write_text(f'interfaces = ["lo"]\ndatadir = "{cfg.datadir}"\nrundir = "{cfg.rundir}"\n')
     with open(SAMPLE) as f:
         subprocess.run([sys.executable, "-m", "collector", "-c", str(config), "--stdin"],
                        stdin=f, cwd=WEBUI, check=True, timeout=30)
@@ -103,7 +104,7 @@ def _history_sums(path):
 
 def test_stdin_mode_stores_history_once(tmp_path, cfg):
     config = tmp_path / "config.toml"
-    config.write_text(f'interfaces = ["lo"]\ndatadir = "{cfg.datadir}"\n')
+    config.write_text(f'interfaces = ["lo"]\ndatadir = "{cfg.datadir}"\nrundir = "{cfg.rundir}"\n')
     expected_sent = sum(json.loads(line)["totals"]["sent_rate"][0] * 2 for line in sample_lines())
     for _ in range(2):
         with open(SAMPLE) as f:
@@ -124,3 +125,10 @@ def test_stopping_iftop_writes_the_history(cfg, fake_iftop):
     # Nothing was due for writing yet, but iftop exiting flushes everything.
     assert _history_sums(cfg.db_path)[2] == len(sample_lines())
     store.close()
+
+
+def test_live_snapshot_and_history_in_separate_directories(cfg):
+    assert os.path.dirname(cfg.live_path) == cfg.rundir
+    assert os.path.dirname(cfg.db_path) == cfg.datadir
+    assert config_mod.from_dict({}).live_path == "/run/iftop-collector/live.json"
+

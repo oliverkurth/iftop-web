@@ -1,7 +1,7 @@
 """Runs iftop, reads its JSON lines, publishes the latest snapshot and
 stores the traffic history.
 
-The snapshot is written to <datadir>/live.json via a temporary file and a
+The snapshot is written to <rundir>/live.json via a temporary file and a
 rename, so readers never see a partial file. The history goes to
 <datadir>/iftop.db (see store.py).
 """
@@ -61,7 +61,7 @@ def parse_line(line):
 
 
 class LiveWriter:
-    """Atomically replaces <datadir>/live.json with each new snapshot."""
+    """Atomically replaces <rundir>/live.json with each new snapshot."""
 
     def __init__(self, path):
         self.path = path
