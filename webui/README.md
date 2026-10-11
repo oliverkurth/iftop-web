@@ -133,12 +133,10 @@ debian/bin/build-deb
 This runs `dpkg-buildpackage -us -uc -b` (unsigned, binary only) and appends
 the git short sha to the package version, for example
 `1.0~pre4-10+json1+git6784659`; `dirty` follows the sha if tracked files have
-uncommitted changes. `debian/changelog` is restored afterwards. Extra
-arguments are passed to `dpkg-buildpackage`.
-
-The build itself rewrites the tracked `INSTALL` and `config/*` files
-(autoreconf), so run `git checkout INSTALL config/` before the next build if
-you want it to be reported as clean.
+uncommitted changes. The build runs in a temporary copy of the working tree,
+so the repository is left untouched; the `.deb`, `.buildinfo` and `.changes`
+files are moved to the parent directory. Extra arguments are passed to
+`dpkg-buildpackage`.
 
 ## History page
 

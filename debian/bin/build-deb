@@ -1,19 +1,31 @@
 #!/bin/sh
 # Build the Debian packages with the git short sha appended to the version,
 # e.g. 1.0~pre4-10+json1 becomes 1.0~pre4-10+json1+git6784659.
-# debian/changelog is restored afterwards. Extra arguments go to
+# The build runs in a temporary copy of the working tree, so the repository
+# is left untouched. The .deb, .buildinfo and .changes files are moved to the
+# parent directory, like dpkg-buildpackage does. Extra arguments go to
 # dpkg-buildpackage.
 set -e
-cd "$(dirname "$0")/../.."
+top=$(cd "$(dirname "$0")/../.." && pwd)
+cd "$top"
 
 sha=$(git rev-parse --short HEAD)
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
     sha="${sha}dirty"
 fi
 
-cp debian/changelog debian/changelog.orig
-trap 'mv debian/changelog.orig debian/changelog' EXIT
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+mkdir "$tmp/src"
 
+# Tracked and untracked (not ignored) files, as they are in the working tree.
+git ls-files -co --exclude-standard -z |
+    tar -c --null -T - --ignore-failed-read 2>/dev/null |
+    tar -x -C "$tmp/src"
+
+cd "$tmp/src"
 sed -i "1s/^\(iftop (\)\([^)]*\))/\1\2+git$sha)/" debian/changelog
 dpkg-parsechangelog -SVersion
 dpkg-buildpackage -us -uc -b "$@"
+
+mv "$tmp"/*.deb "$tmp"/*.buildinfo "$tmp"/*.changes "$top/.."
