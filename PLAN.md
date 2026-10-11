@@ -287,8 +287,69 @@ secret_key_file = "/etc/iftop-web/secret_key"
 
 - Several interfaces: one iftop reader per interface in the collector, plus an
   interface selector in the UI. The schema already supports it.
-- Debian packaging: an `iftop-web` binary package, systemd units for the
-  collector and gunicorn, a system user, `/var/lib/iftop-web`.
+- Reducing writes to flash storage (below).
+
+### Reducing writes to flash storage
+
+On a Raspberry Pi with a CF or SD card, the collector's writes wear out the
+card. `live.json`, rewritten every 2 s, already lives on the `/run` tmpfs.
+The history database is the larger problem. Notes from 2026-10-11, to
+revisit.
+
+**Measured.** Bytes SQLite writes (database and journal, from `wchar` in
+`/proc/self/io`), simulated with the real store code. The storage sees at
+least this much. Filesystem metadata and the card's erase blocks add to it,
+because every commit is synced.
+
+| Traffic | Write interval | Per write | Per day |
+|---|---|---|---|
+| steady: 40 long-lived flows + 2 new per sample, ~5,000 tuples after 3 h | 10 s (now) | 255 KB | 2.2 GB |
+| same | 60 s | 540 KB | 0.8 GB |
+| same | 300 s | 830 KB | 0.24 GB |
+| churning: 50 random host/service pairs per sample, ~10,000 tuples/h | 10 s (now) | 1 MB | 8.9 GB |
+| same | 300 s | 1.7 MB | 0.5 GB |
+
+`journal_mode = TRUNCATE` instead of `DELETE` made no measurable difference.
+
+**Where it goes.**
+
+- Each write updates three resolutions. The current hour's and day's rows
+  number in the thousands, and each write touches rows scattered among them:
+  about half of the bytes. Writing only the minute tables halved the
+  numbers above (10 s: 2.2 → 1.1 GB/day; 60 s: 0.8 → 0.4 GB/day).
+- The rest: the fixed cost of a synced transaction with a rollback journal,
+  new tuples spread across the `tuples` unique index, `hosts.last_seen` for
+  every active address, and the per-sample `totals_raw` rows.
+- Longer intervals help most, because the scattered pages are then written
+  once for many samples.
+
+**Options**, roughly by effect for the effort:
+
+1. **Configurable write interval** (`flush_interval`), e.g. 300 s on a Pi:
+   about 9× fewer bytes. Cost: a crash or power loss loses up to that much
+   history, and the history pages lag by up to that long. Could be combined
+   with 4 to hide the lag.
+2. **Roll up hours and days when they are complete** instead of updating
+   them on every write (the original stage 2 design, with
+   `rollup_state`): about 2×. Cost: queries for the current hour or day
+   must add the minute buckets not yet rolled up, and the rollup needs the
+   restart-safe checkpoint again.
+3. **Per-sample totals (`totals_raw`) in a small database under `/run`.**
+   Losing them on reboot doesn't matter; they cover only the last hour. Small
+   saving, little effort.
+4. **Recent data on tmpfs, copied to flash periodically.** The collector
+   writes everything as now, but to a database under `/run`, and moves
+   complete minutes to the flash database every N minutes (for example 15).
+   The web app reads both. The history stays current to 10 s, and a crash
+   loses at most N minutes. The biggest change, but it removes nearly all
+   small writes.
+5. **`hosts.last_seen` at most hourly.** Small saving, trivial.
+
+**Suggested first step:** 1 and 3 and 5 together, with the interval default
+staying 10 s and a recommendation of 300 s for flash-based systems in
+README.Debian. Measure again, then decide whether 2 or 4 is still needed.
+Also worth measuring on the real Pi: `iostat` or
+`/sys/block/mmcblk0/stat` over a day, to compare with these numbers.
 
 ## Dependencies (Debian 13)
 
