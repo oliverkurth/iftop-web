@@ -1,7 +1,9 @@
-"""Runs iftop, reads its JSON lines and publishes the latest snapshot.
+"""Runs iftop, reads its JSON lines, publishes the latest snapshot and
+stores the traffic history.
 
 The snapshot is written to <datadir>/live.json via a temporary file and a
-rename, so readers never see a partial file.
+rename, so readers never see a partial file. The history goes to
+<datadir>/iftop.db (see store.py).
 """
 
 import argparse
@@ -9,6 +11,7 @@ import json
 import logging
 import os
 import signal
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -16,6 +19,7 @@ import threading
 import time
 
 from common import config as config_mod
+from collector.store import Store, StoreError
 
 log = logging.getLogger("iftop-collector")
 
@@ -80,8 +84,8 @@ class LiveWriter:
             raise
 
 
-def consume(lines, writer):
-    """Publishes every valid snapshot in lines. Returns the number published."""
+def consume(lines, writer, store=None):
+    """Publishes (and stores) every valid snapshot in lines. Returns the number published."""
     count = bad = 0
     for line in lines:
         snap = parse_line(line)
@@ -92,14 +96,18 @@ def consume(lines, writer):
                     log.warning("ignoring invalid line from iftop (%d so far): %.200s", bad, line.strip())
             continue
         writer.write(snap)
+        if store is not None:
+            store.add(snap)
+            store.maybe_flush()
         count += 1
     return count
 
 
 class Collector:
-    def __init__(self, cfg, writer, backoff_min=BACKOFF_MIN, backoff_max=BACKOFF_MAX):
+    def __init__(self, cfg, writer, store=None, backoff_min=BACKOFF_MIN, backoff_max=BACKOFF_MAX):
         self.cfg = cfg
         self.writer = writer
+        self.store = store
         self.backoff_min = backoff_min
         self.backoff_max = backoff_max
         self.stop = threading.Event()
@@ -135,8 +143,10 @@ class Collector:
         err = threading.Thread(target=self._log_stderr, args=(self.proc.stderr,), daemon=True)
         err.start()
         try:
-            consume(self.proc.stdout, self.writer)
+            consume(self.proc.stdout, self.writer, self.store)
         finally:
+            if self.store is not None:
+                self.store.flush()
             try:
                 self.proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
@@ -176,18 +186,26 @@ def main(argv=None):
         return 2
 
     writer = LiveWriter(cfg.live_path)
+    try:
+        store = Store.from_config(cfg).open()
+    except (StoreError, OSError, sqlite3.Error) as e:
+        log.error("cannot open %s: %s", cfg.db_path, e)
+        return 2
 
-    if args.stdin:
-        signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
-        try:
-            consume(sys.stdin, writer)
-        except KeyboardInterrupt:
-            pass
+    try:
+        if args.stdin:
+            signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+            try:
+                consume(sys.stdin, writer, store)
+            except KeyboardInterrupt:
+                pass
+            return 0
+
+        collector = Collector(cfg, writer, store)
+        signal.signal(signal.SIGTERM, collector.request_stop)
+        signal.signal(signal.SIGINT, collector.request_stop)
+        collector.run()
+        log.info("stopped")
         return 0
-
-    collector = Collector(cfg, writer)
-    signal.signal(signal.SIGTERM, collector.request_stop)
-    signal.signal(signal.SIGINT, collector.request_stop)
-    collector.run()
-    log.info("stopped")
-    return 0
+    finally:
+        store.close()

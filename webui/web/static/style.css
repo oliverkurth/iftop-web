@@ -180,10 +180,31 @@ button.link {
 .footer { color: var(--muted); font-size: 12px; padding-top: 6px; }
 .empty { color: var(--muted); padding: 16px 0; }
 
+/* History */
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 12px; }
+.tabs button {
+  font: inherit; color: var(--muted); background: none; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 4px; padding: 4px 12px;
+}
+.tabs button[aria-selected="true"] { color: var(--text); background: var(--surface); border-color: var(--accent); }
+.summary { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+.chart-box { position: relative; height: 240px; margin-bottom: 16px; }
+
+table.top { border-collapse: collapse; width: 100%; font-size: 13px; }
+table.top th { text-align: left; font-weight: 400; color: var(--muted); border-bottom: 1px solid var(--border); padding: 4px 8px; }
+table.top td { padding: 4px 8px; border-bottom: 1px solid var(--border); }
+table.top .num { text-align: right; font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+table.top td.sent { color: var(--sent); }
+table.top td.recv { color: var(--recv); }
+table.top td.host { max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+table.top .muted { color: var(--muted); }
+table.top tr.others td { color: var(--muted); font-style: italic; }
+
 @media (max-width: 720px) {
   :root { --row-h: auto; }
   .conn { grid-template-columns: 1fr; gap: 2px; padding: 6px 0; }
   .rates.head, .scale-row .label { display: none; }
   .scale-row { grid-template-columns: 1fr; padding: 0; }
   .rates > div { grid-template-columns: repeat(3, 1fr); }
+  table.top { display: block; overflow-x: auto; }
 }

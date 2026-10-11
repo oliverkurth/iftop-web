@@ -35,6 +35,8 @@ class WebConfig:
     secret_key_file: str = "/var/lib/iftop-web/secret_key"
     users_db: str = "/var/lib/iftop-web/users.db"
     login_rate_limit: str = "5 per minute"
+    # From the Debian package libjs-chart.js; used by the history page.
+    chart_js: str = "/usr/share/javascript/chart.js/chart.min.js"
 
 
 @dataclass
@@ -56,6 +58,10 @@ class Config:
     @property
     def live_path(self):
         return os.path.join(self.datadir, "live.json")
+
+    @property
+    def db_path(self):
+        return os.path.join(self.datadir, "iftop.db")
 
 
 def _build(cls, data, section):

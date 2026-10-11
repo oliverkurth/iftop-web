@@ -35,18 +35,19 @@ Architecture: all
 Depends:
  gunicorn,
  iftop-json (>= ${source:Version}),
+ libjs-chart.js,
  python3 (>= 3.11),
  python3-flask,
  python3-flask-limiter,
  python3-flask-login,
  python3-flaskext.wtf,
  ${misc:Depends}
-Description: web interface showing live bandwidth usage per connection
- A web interface for iftop-json. A collector service runs iftop-json and keeps
- its latest output; a web service shows the connections with the most traffic
- as bars for sent and received data, updated every two seconds. Connections
- can be filtered, sorted by averaging window, and grouped by folding client
- ports.
+Description: web interface showing live and past bandwidth usage per connection
+ A web interface for iftop-json. A collector service runs iftop-json, keeps
+ its latest output and stores the traffic per connection by minute, hour and
+ day. A web service shows the connections with the most traffic as bars for
+ sent and received data, updated every two seconds, and the history of the
+ last minute up to the last month as charts and top lists.
  .
  All pages require a login. Users are managed with iftop-web-user. The web
  service listens on localhost by default; listening on other addresses

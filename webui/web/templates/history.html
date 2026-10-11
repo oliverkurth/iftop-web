@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}History · iftop{% endblock %}
+{% block head %}
+<script src="{{ url_for('history.chart_js') }}" defer></script>
+<script src="{{ url_for('static', filename='format.js') }}" defer></script>
+<script src="{{ url_for('static', filename='history.js') }}" defer></script>
+{% endblock %}
+{% block content %}
+{% set labels = {"minute": "Minute", "5min": "5 min", "hour": "Hour", "day": "Day", "week": "Week", "month": "Month"} %}
+<div class="history" data-api="{{ url_for('history.api_agg') }}" data-login="{{ url_for('auth.login', next=url_for('history.page')) }}">
+  <div class="tabs" role="tablist" aria-label="Time window">
+    {% for w in windows %}
+    <button type="button" role="tab" data-window="{{ w }}" aria-selected="false">{{ labels[w] }}</button>
+    {% endfor %}
+  </div>
+
+  <div class="controls">
+    <label>Group by
+      <select id="group">
+        <option value="tuple">connection</option>
+        <option value="src">source host</option>
+        <option value="dst">destination host</option>
+      </select>
+    </label>
+    <label>Sort
+      <select id="sort">
+        <option value="total">sent + received</option>
+        <option value="sent">sent</option>
+        <option value="recv">received</option>
+      </select>
+    </label>
+    <label>Units
+      <select id="units">
+        <option value="bits">bits/s</option>
+        <option value="bytes">bytes/s</option>
+      </select>
+    </label>
+    <span id="status" class="status" role="status"></span>
+  </div>
+
+  <p id="summary" class="summary"></p>
+
+  <div class="chart-box">
+    <canvas id="chart" aria-label="Interface traffic over time" role="img"></canvas>
+    <p id="chart-missing" class="empty" hidden>Charts need Chart.js: install the package libjs-chart.js.</p>
+  </div>
+
+  <table class="top">
+    <thead id="top-head"></thead>
+    <tbody id="top-body"></tbody>
+    <tfoot id="top-foot"></tfoot>
+  </table>
+</div>
+{% endblock %}

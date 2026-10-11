@@ -42,3 +42,5 @@ secret_key_file = "/var/lib/iftop-web/secret_key"
 # Owned by the web app's user; separate from datadir.
 users_db = "/var/lib/iftop-web/users.db"
 login_rate_limit = "5 per minute"
+# Chart.js for the history page, from the Debian package libjs-chart.js.
+chart_js = "/usr/share/javascript/chart.js/chart.min.js"

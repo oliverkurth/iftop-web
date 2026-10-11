@@ -1,21 +1,22 @@
 # iftop web interface
 
-A web interface for iftop's JSON output. See `../PLAN.md` for the full plan;
-this is stage 1, the live view.
+A web interface for iftop's JSON output: a live view and the traffic history.
+See `../PLAN.md` for the full plan; stages 1 and 2 are done.
 
 Two processes:
 
-- **collector** (root): runs `iftop -i <interface> -P`, reads its JSON lines
-  and writes the latest snapshot to `<datadir>/live.json`. Restarts iftop if it
-  exits.
-- **web app** (unprivileged user, gunicorn): login, the live page and
-  `/api/live`. Reads `live.json`; needs no access to the network interfaces.
+- **collector** (root): runs `iftop -i <interface> -P`, reads its JSON lines,
+  writes the latest snapshot to `<datadir>/live.json` and adds the traffic to
+  the history in `<datadir>/iftop.db`. Restarts iftop if it exits.
+- **web app** (unprivileged user, gunicorn): login, the live and history
+  pages, `/api/live` and `/api/agg`. Only reads the collector's files; needs
+  no access to the network interfaces.
 
 ## Requirements (Debian 13)
 
 ```sh
 sudo apt install python3-flask python3-flask-login python3-flaskext.wtf \
-    python3-flask-limiter gunicorn
+    python3-flask-limiter gunicorn libjs-chart.js
 ```
 
 For the tests: `python3-pytest`. iftop itself must be built from this
@@ -138,6 +139,35 @@ arguments are passed to `dpkg-buildpackage`.
 The build itself rewrites the tracked `INSTALL` and `config/*` files
 (autoreconf), so run `git checkout INSTALL config/` before the next build if
 you want it to be reported as clean.
+
+## History page
+
+The collector stores the traffic per connection in minute, hour and day
+buckets (in local time), with the client ports folded as described in
+`../PLAN.md`. It writes every 10 seconds; stopping it writes what is left.
+Minutes are kept for `minute_days` (default 7), hours for `hour_days`
+(default 365), days for ever.
+
+The page has tabs for the last minute, 5 minutes, hour, day, week and month.
+Each shows a chart of the interface's traffic over that window and the top
+connections, or source or destination hosts, with their bytes and average
+rate. The minute chart has a point for every 2-second sample, 5 minutes one
+per 10 seconds; for these the collector keeps the samples' totals for an
+hour. Times when
+the collector was not running are breaks in the chart, and the summary says
+how much of the window has data. A window covers whole buckets, so it can be
+up to one bucket longer than its name: the summary shows the exact range.
+
+`GET /api/agg` parameters:
+
+| Parameter | Values | Default |
+|---|---|---|
+| `window` | `minute`, `5min`, `hour`, `day`, `week`, `month` | `hour` |
+| `group` | `tuple` (connection), `src`, `dst` (host) | `tuple` |
+| `sort` | `total`, `sent`, `recv` | `total` |
+| `limit` | 1–500 | 20 |
+
+Bytes are totals for the window; chart rates are bytes per second.
 
 ## Tests
 

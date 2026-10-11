@@ -4,8 +4,9 @@ iftop-web for Debian
 Two services are installed, enabled and started:
 
  iftop-collector  runs iftop-json as the _iftop-collector user (with only the
-                  CAP_NET_RAW and CAP_NET_ADMIN capabilities) and writes the
-                  latest snapshot to /var/lib/iftop-collector/live.json.
+                  CAP_NET_RAW and CAP_NET_ADMIN capabilities), writes the
+                  latest snapshot to /var/lib/iftop-collector/live.json and
+                  the history to /var/lib/iftop-collector/iftop.db.
  iftop-web        runs the web interface under gunicorn as the _iftop-web
                   user, on http://127.0.0.1:8000/ by default.
 
@@ -61,6 +62,9 @@ Files
 
  /etc/iftop-web/config.toml            configuration
  /var/lib/iftop-collector/live.json    latest snapshot (readable by everyone)
+ /var/lib/iftop-collector/iftop.db     traffic history (SQLite, readable by
+                                       everyone); see [retention] in the
+                                       configuration
  /var/lib/iftop-web/users.db           users (scrypt password hashes)
  /var/lib/iftop-web/secret_key         signs session cookies; created on first
                                        start. Deleting it logs everybody out.

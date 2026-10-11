@@ -90,3 +90,37 @@ def test_missing_iftop_binary_is_retried(cfg, tmp_path):
 def test_no_interface_lets_iftop_choose(cfg):
     cfg.interfaces = []
     assert Collector(cfg, LiveWriter(cfg.live_path)).command() == [cfg.iftop, "-P"]
+
+
+def _history_sums(path):
+    import sqlite3
+    conn = sqlite3.connect(path)
+    try:
+        return conn.execute("SELECT sum(bytes_sent), sum(bytes_recv), sum(samples) FROM totals_1m").fetchone()
+    finally:
+        conn.close()
+
+
+def test_stdin_mode_stores_history_once(tmp_path, cfg):
+    config = tmp_path / "config.toml"
+    config.write_text(f'interfaces = ["lo"]\ndatadir = "{cfg.datadir}"\n')
+    expected_sent = sum(json.loads(line)["totals"]["sent_rate"][0] * 2 for line in sample_lines())
+    for _ in range(2):
+        with open(SAMPLE) as f:
+            subprocess.run([sys.executable, "-m", "collector", "-c", str(config), "--stdin"],
+                           stdin=f, cwd=WEBUI, check=True, timeout=30)
+        # The second replay finds every sample already stored.
+        assert _history_sums(cfg.db_path) == (expected_sent, 0, len(sample_lines()))
+
+
+def test_stopping_iftop_writes_the_history(cfg, fake_iftop):
+    from collector.store import Store
+
+    script, log = fake_iftop
+    cfg.iftop = str(script)
+    store = Store.from_config(cfg).open()
+    collector = Collector(cfg, LiveWriter(cfg.live_path), store, backoff_min=0.01, backoff_max=0.01)
+    collector.run_once()        # the fake iftop prints the sample and exits
+    # Nothing was due for writing yet, but iftop exiting flushes everything.
+    assert _history_sums(cfg.db_path)[2] == len(sample_lines())
+    store.close()

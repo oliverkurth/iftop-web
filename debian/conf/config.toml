@@ -17,6 +17,11 @@ server_ports = []
 # Otherwise the higher port is treated as the client's if it is at least this.
 ephemeral_port_min = 32768
 
+# How long the history keeps minute and hour buckets; days are kept for ever.
+[retention]
+#minute_days = 7
+#hour_days = 365
+
 [web]
 # Plain HTTP is only allowed on localhost. To listen on other addresses, set
 # certfile and keyfile (readable by the _iftop-web user), or put a TLS proxy in

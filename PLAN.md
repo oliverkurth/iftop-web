@@ -190,49 +190,85 @@ secret_key_file = "/etc/iftop-web/secret_key"
    Possible later improvement: learn server ports from the data (a port seen
    with many different peer ports is a server). Add this only if the rules
    above fold the wrong side in practice.
-2. **SQLite schema (`iftop.db`)**
+2. **SQLite schema (`iftop.db`, `common/schema.py`)**
    - `tuples(id, interface, proto, src_addr, src_port, dst_addr, dst_port)`,
-     unique on the key.
+     unique on the key. Port 0 means the connection has no ports (e.g. ICMP),
+     -1 that the port was folded (`*`).
    - `hosts(interface, addr, name, last_seen)`: latest resolved name per IP.
-   - `services(proto, port, name)`: service label per port.
+     A sample without a name doesn't overwrite a known one.
+   - `services(proto, port, name)`: service label per known port.
    - `agg_1m`, `agg_1h`, `agg_1d`:
      `(bucket_start, tuple_id, bytes_sent, bytes_recv, samples)`, primary key
      `(bucket_start, tuple_id)`.
    - `totals_1m`, `totals_1h`, `totals_1d`: per-interface totals at the same
-     resolutions.
-   - `rollup_state(level, last_bucket)`.
+     resolutions, from iftop's interface totals. A bucket without a totals
+     row had no data: the collector wasn't running.
+   - `totals_raw(interface, ts, bytes_sent, bytes_recv)`: the interface
+     totals of every 2-second sample, kept for an hour, for the charts of
+     the minute and 5-minute tabs.
+   - `ingest_state(interface, last_ts)`: newest sample stored.
    - `collector_sessions(id, interface, started, last_heartbeat, stopped)`.
    - 5-minute, week and month views are computed from these tables with
      queries; they get no tables of their own.
-3. **Writing data**
-   - Counts are summed in memory and written every ~10 s in one transaction
+   - **Rollback journal, not WAL.** The web app opens the database read-only
+     as another user. With WAL that fails whenever the collector is stopped,
+     because the reader would have to create the shared-memory file.
+3. **Writing data (`collector/store.py`)**
+   - **Bytes per sample = `rate[0] × 2`.** iftop prints one line per 2-second
+     history slot, and `rate[0]` is that slot's bytes divided by 2 even when
+     the slot ran late. So this is exact, while `rate × Δt` would be wrong
+     whenever the whole-second timestamps jitter.
+   - Counts are summed in memory and written every 10 s in one transaction
      with `INSERT … ON CONFLICT DO UPDATE SET bytes = bytes + excluded.bytes`.
-   - Once per minute, the 1m buckets are rolled up into hourly and daily
-     buckets, from the bucket after `rollup_state.last_bucket` up to the last
-     complete bucket.
+   - **No separate rollup step.** Each write adds the same counts to the
+     minute, hour and day tables in that one transaction, so hours and days
+     are always current and always agree with the minutes.
+   - **Buckets in local time (`common/buckets.py`).** Days start at local
+     midnight (23 or 25 hours on DST days). Hours follow the local UTC
+     offset, so half-hour zones line up and the repeated hour on DST end
+     stays two buckets.
 4. **Restart safety**
-   - Additive upserts plus the `rollup_state` checkpoint: a restart loses at
-     most ~10 s of data and never counts anything twice.
-   - On startup the collector catches up on any rollups that are behind.
-   - `collector_sessions` heartbeats let the UI show downtime as gaps, not as
-     zero traffic.
+   - Additive upserts, written in the same transaction as `ingest_state`: a
+     crash loses at most ~10 s of data and never counts anything twice.
    - Ingest skips any sample whose timestamp is not later than the last one
-     stored (safe for replays and overlap).
-   - SIGTERM triggers a final write, then iftop is stopped.
+     stored (safe for replays and overlap). A clock jumping backwards drops
+     samples until it has caught up; this is logged.
+   - A failed write is rolled back and retried at the next flush.
+   - SIGTERM, or iftop exiting, triggers a final write.
+   - `collector_sessions` records start, heartbeat (each write) and clean
+     stop.
 5. **Retention:** 1m kept `minute_days` (default 7), 1h kept `hour_days`
-   (default 365), 1d kept for ever. A daily purge runs inside the collector.
-6. **Web pages**
-   - `/history` has tabs: current minute, 5 min, hour, day, week, month.
-   - Each tab shows a totals chart over time (sent and received, gaps marked)
-     and a top-N table for the window.
-   - Charts use Chart.js from the Debian package `libjs-chart.js`, served
-     locally by Flask. Downtime is shown as breaks in the line, not as zero.
-   - API: `/api/agg?window=…&group=…`.
-7. **Tests:** rollup correctness, a simulated crash before the write followed
-   by a restart, buckets at boundaries, name updates in `hosts`, and each
-   folding rule: a configured high server port (51820), a known service on a
-   high port, a low port against an unknown port, both ports high, both
-   below the threshold, equal ports, and connections without ports.
+   (default 365), 1d kept for ever. The purge runs at startup and then daily
+   inside the collector.
+6. **Web pages (`web/history.py`)**
+   - `/history` has tabs: minute, 5 min, hour, day, week, month. They are
+     rolling windows ("the last hour"), made of the whole buckets that
+     overlap the window, so a window is at most one bucket longer than its
+     name. The page shows the exact range and how much of it has data.
+   - Each tab shows a chart of the interface's sent and received rate, and a
+     top-N table (bytes and average rate) for the window, grouped by
+     connection, source host or destination host. The chart covers exactly
+     the same range as the table.
+
+     | Tab | Top list from | Chart points | Ticks |
+     |---|---|---|---|
+     | minute | 1m | every sample (2 s) | 10 s |
+     | 5 min | 1m | 10 s | 1 min |
+     | hour | 1m | 1 min | 10 min |
+     | day | 1h | 5 min (from 1m) | 3 h |
+     | week | 1h | 1 h | midnight |
+     | month | 1d | 1 day | midnight |
+
+   - Chart rates are bytes per second of collected time. A step without any
+     data is a break in the line, not zero.
+   - Charts use Chart.js from the Debian package `libjs-chart.js`, served by
+     Flask at `/vendor/chart.min.js` (`[web] chart_js` in the config).
+   - API: `/api/agg?window=…&group=tuple|src|dst&sort=total|sent|recv&limit=…`.
+7. **Tests:** bucket boundaries (DST change days in Berlin, half-hour offset
+   in Kolkata), all three resolutions adding up, a crash before the write
+   followed by a restart and a replay, a failed write, name updates in
+   `hosts`, retention, folding into the stored keys, and the API: windows,
+   grouping, sorting, the "others" sum and gaps in the chart.
 
 ## Stage 3 — history and port selection
 

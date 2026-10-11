@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Live · iftop{% endblock %}
-{% block head %}<script src="{{ url_for('static', filename='live.js') }}" defer></script>{% endblock %}
+{% block head %}
+<script src="{{ url_for('static', filename='format.js') }}" defer></script>
+<script src="{{ url_for('static', filename='live.js') }}" defer></script>
+{% endblock %}
 {% block content %}
 <div class="live" data-api="{{ url_for('live.api_live') }}" data-login="{{ url_for('auth.login', next=url_for('live.index')) }}">
   <div class="controls">

@@ -86,8 +86,9 @@ def create_app(cfg=None, secret_key=None, testing=False):
             h.setdefault("Strict-Transport-Security", "max-age=31536000")
         return response
 
-    from . import auth, live
+    from . import auth, history, live
     app.register_blueprint(auth.bp)
     app.register_blueprint(live.bp)
+    app.register_blueprint(history.bp)
     app.cli.add_command(user_cli)
     return app
