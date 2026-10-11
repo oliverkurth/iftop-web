@@ -288,6 +288,7 @@ secret_key_file = "/etc/iftop-web/secret_key"
 - Several interfaces: one iftop reader per interface in the collector, plus an
   interface selector in the UI. The schema already supports it.
 - Reducing writes to flash storage (below).
+- Bounding the size of the history (below).
 
 ### Reducing writes to flash storage
 
@@ -350,6 +351,53 @@ staying 10 s and a recommendation of 300 s for flash-based systems in
 README.Debian. Measure again, then decide whether 2 or 4 is still needed.
 Also worth measuring on the real Pi: `iostat` or
 `/sys/block/mmcblk0/stat` over a day, to compare with these numbers.
+
+### Bounding the size of the history
+
+Notes from 2026-10-11, to revisit. Apart from folding client ports, the
+history forgets nothing:
+
+| Kept | How long |
+|---|---|
+| minute buckets | `minute_days` (7) |
+| hour buckets | `hour_days` (365) |
+| day buckets | for ever: one row per tuple per day it had traffic |
+| `tuples`, `hosts`, `services` | for ever, never pruned |
+
+**Size.** Measured in the simulated databases: about 95 bytes per distinct
+tuple (`tuples` plus its unique index) and about 24 bytes per row in
+`agg_1h` and `agg_1d`. Growth depends on how many *new* tuples appear:
+
+- Steady traffic from the flash measurements above (about 1,700 new tuples
+  an hour, to many different remote addresses): roughly 2 GB in the first
+  year and about 1.5 GB more each following year. Extrapolated from three
+  simulated hours.
+- A quiet network that keeps talking to the same few hundred servers: a few
+  MB a year.
+- Peer-to-peer traffic (e.g. BitTorrent) is the worst case: random high
+  ports on both sides and thousands of peers make almost every connection a
+  new tuple.
+
+**Privacy.** The database is a permanent record of which hosts talked to
+which, readable by every local user (0644) and shown to every login.
+
+**Options:**
+
+1. **`day_days` retention** for the day buckets, plus pruning `tuples` and
+   `hosts` (and `services`) that no longer have any rows. Simple, gives a
+   hard bound. Pruning must not race with the collector's tuple id cache:
+   prune inside the collector, and clear the cache entries it deletes.
+2. **Coarser long-term data.** After N days, merge day rows to host-pair
+   level (no ports), or keep only the top N tuples per day and add the rest
+   to an "other" row. Keeps the long-term picture without the long tail.
+3. **Totals for ever, connections for a limited time.** The `totals_*`
+   tables are tiny, so yearly interface charts stay possible even when
+   per-connection data is dropped.
+4. **Tighter permissions.** Make `iftop.db` readable only by a shared group
+   (`_iftop-collector` and `_iftop-web`) instead of everyone.
+
+These interact with the flash notes: pruning and merging are large writes,
+so they should run rarely (e.g. daily, as the purge does now).
 
 ## Dependencies (Debian 13)
 
