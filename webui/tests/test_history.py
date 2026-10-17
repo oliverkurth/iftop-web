@@ -134,7 +134,7 @@ def test_api(logged_in, cfg):
     assert data["window"] == "5min" and data["sort"] == "recv"
     assert data["items"][0]["bytes_recv"] == 40 * 60
     # Unknown values fall back to the defaults.
-    data = logged_in.get("/api/agg?window=year&group=x&sort=y&limit=z").get_json()
+    data = logged_in.get("/api/agg?window=decade&group=x&sort=y&limit=z").get_json()
     assert (data["window"], data["group"], data["sort"]) == ("hour", "tuple", "total")
 
 
@@ -221,3 +221,147 @@ def test_old_database_without_samples_table(cfg):
     conn.close()
     data = q(cfg, "minute")
     assert data["chart"]["points"] == [] and data["count"] == 1
+
+
+# ---- stage 3: filters, detail views, small charts ----
+
+def qf(cfg, window="hour", **filt):
+    conn = history.connect(cfg.db_path)
+    try:
+        return history.query(conn, window, now=NOW, filt=history.Filter(**filt))
+    finally:
+        conn.close()
+
+
+def tuple_id(cfg, dst):
+    conn = history.connect(cfg.db_path)
+    try:
+        return conn.execute("SELECT id FROM tuples WHERE dst_addr = ?", (dst,)).fetchone()[0]
+    finally:
+        conn.close()
+
+
+def test_no_filter_is_described_as_empty(filled):
+    assert q(filled, "hour")["filter"] == {"tuple": None, "src": None, "dst": None, "port": None, "proto": None}
+
+
+def test_filter_by_connection(filled):
+    tid = tuple_id(filled, "10.0.0.2")
+    all_ = q(filled, "hour")
+    data = qf(filled, tuple_id=tid)
+    assert data["count"] == 1 and data["items"][0]["id"] == tid
+    desc = data["filter"]["tuple"]
+    assert desc["src"]["host"] == "laptop" and desc["src"]["folded"]
+    assert desc["dst"] == {"addr": "10.0.0.2", "host": "server", "port": 443, "service": "https"}
+    # The summary counts only this connection, over the same covered time.
+    item = all_["items"][0]
+    assert data["totals"]["bytes_sent"] == item["bytes_sent"]
+    assert data["totals"]["covered_seconds"] == all_["totals"]["covered_seconds"]
+    # The chart is this connection's rate, from the minute buckets.
+    chart = data["chart"]
+    assert chart["step"] == 60
+    full = buckets.minute_start(NOW - 2400)
+    assert {p[0]: p for p in chart["points"]}[full][1:] == [100, 1000]
+
+
+def test_unknown_connection(filled):
+    data = qf(filled, tuple_id=99999)
+    assert data["count"] == 0 and data["filter"]["tuple"] == {"id": 99999, "unknown": True}
+
+
+def test_filter_by_host(filled):
+    data = qf(filled, src="10.0.0.1")
+    assert data["count"] == 2
+    assert {i["dst"]["addr"] for i in data["items"]} == {"10.0.0.2", "10.0.0.53"}
+    assert data["filter"]["src"] == {"addr": "10.0.0.1", "host": "laptop"}
+    data = qf(filled, dst="10.0.0.53")
+    assert [i["proto"] for i in data["items"]] == ["udp"]
+    assert data["filter"]["dst"] == {"addr": "10.0.0.53", "host": "dns"}
+
+
+@pytest.mark.parametrize("filt,dsts", [
+    ({"port": 443}, {"10.0.0.2", "10.0.0.9"}),
+    ({"port": "https"}, {"10.0.0.2", "10.0.0.9"}),
+    ({"port": "domain"}, {"10.0.0.53"}),
+    ({"port": 53, "proto": 6}, set()),
+    ({"proto": 17}, {"10.0.0.53"}),
+    ({"port": "no-such-service"}, set()),
+    ({"src": "10.0.0.1", "port": 443}, {"10.0.0.2"}),
+])
+def test_filter_by_port_and_protocol(filled, filt, dsts):
+    data = qf(filled, **filt)
+    assert {i["dst"]["addr"] for i in data["items"]} == dsts
+    assert data["count"] == len(dsts)
+
+
+def test_filtered_chart_has_gaps_where_there_was_no_data(filled):
+    chart = qf(filled, port=443)["chart"]
+    points = {p[0]: p for p in chart["points"]}
+    gap = [t for t in points if NOW - 1800 <= t and t + 60 <= NOW - 1200]
+    assert gap and all(points[t][1] is None for t in gap)
+    full = buckets.minute_start(NOW - 2400)
+    assert points[full][1:] == [110, 1020]
+
+
+def test_series_for_each_item(filled):
+    data = q(filled, "hour")
+    times = data["series"]["times"]
+    assert data["series"]["step"] == 60 and times[0] == data["from"]
+    for item in data["items"]:
+        assert len(item["series"]) == len(times)
+    by_time = dict(zip(times, data["items"][0]["series"]))
+    assert by_time[buckets.minute_start(NOW - 2400)] == 1100        # sent + received rate
+    gap = [t for t in times if NOW - 1800 <= t and t + 60 <= NOW - 1200]
+    assert gap and all(by_time[t] is None for t in gap)
+
+
+def test_series_for_hosts(filled):
+    conn = history.connect(filled.db_path)
+    try:
+        hosts = history.query(conn, "hour", group="dst", now=NOW)
+    finally:
+        conn.close()
+    assert [len(i["series"]) for i in hosts["items"]] == [len(hosts["series"]["times"])] * 3
+    assert dict(zip(hosts["series"]["times"], hosts["items"][0]["series"]))[
+        buckets.minute_start(NOW - 2400)] == 1100
+
+
+def test_year_window(filled):
+    data = q(filled, "year")
+    assert data["chart"]["step"] == buckets.DAY
+    assert NOW - data["from"] >= 365 * buckets.DAY
+    assert data["count"] == 3
+
+
+@pytest.mark.parametrize("query_string,message", [
+    ("tuple=abc", "invalid connection id"),
+    ("port=70000", "invalid port"),
+    ("port=a%20b", "invalid service name"),
+    ("proto=xyz", "unknown protocol"),
+])
+def test_api_rejects_bad_filters(logged_in, cfg, query_string, message):
+    Store(cfg.db_path).open().close()
+    resp = logged_in.get("/api/agg?" + query_string)
+    assert resp.status_code == 400
+    assert message in resp.get_json()["error"]
+
+
+def test_api_filters(logged_in, cfg):
+    store = Store(cfg.db_path).open()
+    now = int(time.time())
+    for t in range(now - 120, now, 2):
+        store.add(snap(t, [https(10, 20), conn_(41000, 53, 1, 1, proto=17, dst="10.0.0.53", dst_service="domain")]))
+    store.close()
+    data = logged_in.get("/api/agg?window=5min&port=DOMAIN&proto=udp").get_json()
+    assert data["count"] == 1 and data["filter"]["port"] == "domain" and data["filter"]["proto"] == "udp"
+    tid = data["items"][0]["id"]
+    data = logged_in.get(f"/api/agg?window=5min&tuple={tid}").get_json()
+    assert data["filter"]["tuple"]["dst"]["service"] == "domain"
+
+
+def test_pages_have_port_and_protocol_controls(logged_in):
+    for path in ("/", "/history"):
+        page = logged_in.get(path).get_data(as_text=True)
+        assert 'id="port"' in page and 'id="proto"' in page
+    page = logged_in.get("/history").get_data(as_text=True)
+    assert 'data-window="year"' in page and 'id="filter-banner"' in page

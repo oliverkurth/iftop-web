@@ -303,3 +303,33 @@ def test_secret_key_is_created_once(cfg, tmp_path):
     assert app.config["SECRET_KEY"] == secret.encode() and len(secret) >= 32
     assert (tmp_path / "secret_key").stat().st_mode & 0o777 == 0o600
     assert create_app(cfg).config["SECRET_KEY"] == secret.encode()
+
+
+# ---- port and protocol filters on the live page ----
+
+@pytest.mark.parametrize("query_string,expect", [
+    ("port=8080", lambda c: 8080 in (c["src"]["port"], c["dst"]["port"])),
+    ("port=http-alt", lambda c: "http-alt" in (c["src"]["service"], c["dst"]["service"])),
+    ("port=domain&proto=udp", lambda c: c["proto"] == "udp" and 53 in (c["src"]["port"], c["dst"]["port"])),
+    ("proto=17", lambda c: c["proto"] == "udp"),
+])
+def test_live_port_and_protocol_filter(logged_in, live_file, query_string, expect):
+    snap = live_file()
+    data = logged_in.get("/api/live?limit=1000&" + query_string).get_json()
+    assert data["matched"] > 0 and data["matched"] < len(snap["connections"])
+    assert all(expect(c) for c in data["connections"])
+
+
+def test_live_port_filter_with_folding(logged_in, live_file):
+    live_file()
+    data = logged_in.get("/api/live?fold=1&port=8080").get_json()
+    # The server side keeps its port; the folded client side matches through it.
+    assert data["matched"] == 2
+    assert all(8080 in (c["src"]["port"], c["dst"]["port"]) for c in data["connections"])
+
+
+@pytest.mark.parametrize("query_string", ["port=0", "port=65536", "proto=nope", "port=a;b"])
+def test_live_rejects_bad_filters(logged_in, live_file, query_string):
+    live_file()
+    resp = logged_in.get("/api/live?" + query_string)
+    assert resp.status_code == 400 and resp.get_json()["error"]

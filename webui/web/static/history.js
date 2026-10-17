@@ -3,7 +3,12 @@
 (function () {
   const SETTINGS_KEY = "iftop-history-settings";
   // Refresh more often for short windows; the collector writes every 10 s.
-  const REFRESH_MS = { minute: 10000, "5min": 10000, hour: 10000, day: 60000, week: 300000, month: 300000 };
+  const REFRESH_MS = {
+    minute: 10000, "5min": 10000, hour: 10000, day: 60000, week: 300000, month: 300000, year: 3600000,
+  };
+  // Filters come from the page address, so a detail view can be bookmarked.
+  const FILTERS = ["tuple", "src", "dst", "port", "proto"];
+  const SVG = "http://www.w3.org/2000/svg";
 
   const root = document.querySelector(".history");
   const apiUrl = root.dataset.api;
@@ -11,6 +16,11 @@
   const els = {
     tabs: [...root.querySelectorAll(".tabs button")],
     group: document.getElementById("group"),
+    port: document.getElementById("port"),
+    proto: document.getElementById("proto"),
+    banner: document.getElementById("filter-banner"),
+    bannerText: document.getElementById("filter-text"),
+    bannerClear: document.getElementById("filter-clear"),
     sort: document.getElementById("sort"),
     units: document.getElementById("units"),
     status: document.getElementById("status"),
@@ -27,6 +37,7 @@
   let timer = null;
   let inflight = null;
   let lastData = null;
+  const filters = {};
 
   // ---- settings (per browser, optional) ----
 
@@ -44,6 +55,39 @@
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) { /* ignore */ }
   }
 
+  // ---- filters and the page address ----
+
+  function loadUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const w = params.get("window");
+    if (w && els.tabs.some((t) => t.dataset.window === w)) current = w;
+    for (const k of FILTERS) {
+      const v = (params.get(k) || "").trim();
+      if (v) filters[k] = v;
+    }
+    els.port.value = filters.port || "";
+    if (filters.proto && [...els.proto.options].some((o) => o.value === filters.proto)) {
+      els.proto.value = filters.proto;
+    }
+  }
+
+  // A link to this page with the given filters and the current window.
+  function pageUrl(f) {
+    const params = new URLSearchParams({ window: current });
+    for (const k of FILTERS) if (f[k]) params.set(k, f[k]);
+    return window.location.pathname + "?" + params;
+  }
+
+  function syncUrl() {
+    try { history.replaceState(null, "", pageUrl(filters)); } catch (e) { /* ignore */ }
+  }
+
+  function setFilter(k, v) {
+    if (v) filters[k] = v;
+    else delete filters[k];
+    syncUrl();
+  }
+
   // ---- formatting ----
 
   const bits = () => els.units.value === "bits";
@@ -51,7 +95,7 @@
   const bytes = IftopFormat.bytes;
 
   // Spacing of the chart's tick marks per window, in seconds of local time.
-  const TICKS = { minute: 10, "5min": 60, hour: 600, day: 3 * 3600, week: 86400, month: 86400 };
+  const TICKS = { minute: 10, "5min": 60, hour: 600, day: 3 * 3600, week: 86400, month: 86400, year: "month" };
 
   const withSeconds = (w) => w === "minute" || w === "5min";
 
@@ -70,7 +114,15 @@
   function tickValues(from, to, w) {
     const step = TICKS[w];
     const ticks = [];
-    if (step >= 86400) {
+    if (step === "month") {
+      // The first of each month, at local midnight.
+      const d = new Date(from * 1000);
+      d.setDate(1);
+      d.setHours(0, 0, 0, 0);
+      for (let t = d.getTime() / 1000; t <= to; d.setMonth(d.getMonth() + 1), t = d.getTime() / 1000) {
+        if (t >= from) ticks.push({ value: t });
+      }
+    } else if (step >= 86400) {
       // Local midnights, which are 23 to 25 hours apart around DST changes.
       const d = new Date(from * 1000);
       d.setHours(0, 0, 0, 0);
@@ -94,6 +146,8 @@
         return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric" });
       case "month":
         return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      case "year":
+        return d.toLocaleDateString(undefined, { month: "short" });
       default:
         return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
     }
@@ -207,6 +261,67 @@
     els.head.replaceChildren(tr);
   }
 
+  // A small line chart of an item's total rate, with breaks where there is no data.
+  function sparkline(values) {
+    const w = 120, h = 24, pad = 2;
+    const svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+    svg.setAttribute("width", w);
+    svg.setAttribute("height", h);
+    svg.setAttribute("class", "spark");
+    svg.setAttribute("aria-hidden", "true");
+    const present = values.filter((v) => v != null);
+    const max = present.length ? Math.max(...present) : 0;
+    const n = values.length;
+    const x = (i) => (n === 1 ? w / 2 : pad + (i * (w - 2 * pad)) / (n - 1));
+    const y = (v) => (max > 0 ? h - pad - (v / max) * (h - 2 * pad) : h - pad);
+    let segment = [];
+    const flush = () => {
+      if (segment.length > 1) {
+        const line = document.createElementNS(SVG, "polyline");
+        line.setAttribute("points", segment.join(" "));
+        svg.appendChild(line);
+      } else if (segment.length === 1) {
+        const [cx, cy] = segment[0].split(",");
+        const dot = document.createElementNS(SVG, "circle");
+        dot.setAttribute("cx", cx);
+        dot.setAttribute("cy", cy);
+        dot.setAttribute("r", "1.2");
+        svg.appendChild(dot);
+      }
+      segment = [];
+    };
+    values.forEach((v, i) => {
+      if (v == null) flush();
+      else segment.push(x(i).toFixed(1) + "," + y(v).toFixed(1));
+    });
+    flush();
+    return { svg, max };
+  }
+
+  function trendCell(tr, values) {
+    const td = document.createElement("td");
+    td.className = "trend";
+    if (values && values.length) {
+      const { svg, max } = sparkline(values);
+      td.appendChild(svg);
+      td.title = "peak " + rate(max);
+    }
+    tr.appendChild(td);
+  }
+
+  function linkCell(tr, text, href, title) {
+    const td = document.createElement("td");
+    td.className = "host";
+    const a = document.createElement("a");
+    a.textContent = text;
+    a.href = href;
+    if (title) a.title = title;
+    td.appendChild(a);
+    tr.appendChild(td);
+    return td;
+  }
+
   function numbers(tr, s, r, seconds) {
     cell(tr, bytes(s), "num sent");
     cell(tr, bytes(r), "num recv");
@@ -217,27 +332,34 @@
   function renderTable(data) {
     const tuple = data.group === "tuple";
     const seconds = data.totals.covered_seconds;
-    const numCols = [["Sent", "num"], ["Received", "num"], ["Total", "num"], ["Average", "num"]];
+    const numCols = [["Trend"], ["Sent", "num"], ["Received", "num"], ["Total", "num"], ["Average", "num"]];
     header(tuple ? [["Source"], ["Destination"], ["Proto"], ...numCols]
                  : [[data.group === "src" ? "Source host" : "Destination host"], ...numCols]);
 
+    // Port and protocol filters carry over to a host's detail view; a
+    // connection's view needs neither.
+    const keep = { port: filters.port, proto: filters.proto };
     const rows = document.createDocumentFragment();
     for (const item of data.items) {
       const tr = document.createElement("tr");
       if (tuple) {
-        cell(tr, endpoint(item.src), "host", endpointTitle(item.src));
-        cell(tr, endpoint(item.dst), "host", endpointTitle(item.dst));
+        const href = pageUrl({ tuple: String(item.id) });
+        linkCell(tr, endpoint(item.src), href, endpointTitle(item.src));
+        linkCell(tr, endpoint(item.dst), href, endpointTitle(item.dst));
         cell(tr, item.proto, "muted");
       } else {
         const h = item[data.group];
-        cell(tr, h.host || h.addr || "*", "host", h.addr || "");
+        const href = h.addr ? pageUrl({ ...keep, [data.group]: h.addr }) : null;
+        if (href) linkCell(tr, h.host || h.addr, href, h.addr);
+        else cell(tr, "*", "host");
       }
+      trendCell(tr, item.series);
       numbers(tr, item.bytes_sent, item.bytes_recv, seconds);
       rows.appendChild(tr);
     }
     if (!data.items.length) {
       const tr = document.createElement("tr");
-      cell(tr, "No traffic in this window.", "empty").colSpan = tuple ? 7 : 5;
+      cell(tr, "No traffic in this window.", "empty").colSpan = tuple ? 8 : 6;
       rows.appendChild(tr);
     }
     els.body.replaceChildren(rows);
@@ -248,6 +370,7 @@
       tr.className = "others";
       const label = cell(tr, data.others.count + " more", "host");
       if (tuple) label.colSpan = 3;
+      cell(tr, "");
       numbers(tr, data.others.bytes_sent, data.others.bytes_recv, seconds);
       foot.appendChild(tr);
     }
@@ -269,8 +392,27 @@
     els.summary.textContent = parts.join(" · ");
   }
 
+  function renderBanner(data) {
+    const f = data.filter || {};
+    let text = null;
+    if (f.tuple) {
+      text = f.tuple.unknown
+        ? "Unknown connection #" + f.tuple.id
+        : "Connection " + endpoint(f.tuple.src) + " → " + endpoint(f.tuple.dst) + " (" + f.tuple.proto + ")";
+    } else if (f.src || f.dst) {
+      const h = f.src || f.dst;
+      text = (f.src ? "Traffic from " : "Traffic to ") + (h.host ? h.host + " (" + h.addr + ")" : h.addr);
+    }
+    els.banner.hidden = text === null;
+    if (text !== null) {
+      els.bannerText.textContent = text;
+      els.bannerClear.href = pageUrl({ port: filters.port, proto: filters.proto });
+    }
+  }
+
   function render(data) {
     lastData = data;
+    renderBanner(data);
     renderSummary(data);
     renderChart(data);
     renderTable(data);
@@ -293,6 +435,7 @@
     const ctl = new AbortController();
     inflight = ctl;
     const params = new URLSearchParams({ window: current, group: els.group.value, sort: els.sort.value });
+    for (const k of FILTERS) if (filters[k]) params.set(k, filters[k]);
     try {
       const resp = await fetch(apiUrl + "?" + params, {
         credentials: "same-origin", cache: "no-store", signal: ctl.signal,
@@ -320,8 +463,14 @@
   }
 
   for (const t of els.tabs) {
-    t.addEventListener("click", () => { selectTab(t.dataset.window); saveSettings(); load(); });
+    t.addEventListener("click", () => { selectTab(t.dataset.window); saveSettings(); syncUrl(); load(); });
   }
+  let portTimer = null;
+  els.port.addEventListener("input", () => {
+    clearTimeout(portTimer);
+    portTimer = setTimeout(() => { setFilter("port", els.port.value.trim()); load(); }, 400);
+  });
+  els.proto.addEventListener("change", () => { setFilter("proto", els.proto.value); load(); });
   for (const k of ["group", "sort"]) {
     els[k].addEventListener("change", () => { saveSettings(); load(); });
   }
@@ -337,6 +486,8 @@
   });
 
   loadSettings();
+  loadUrl();
   selectTab(current);
+  syncUrl();
   load();
 })();

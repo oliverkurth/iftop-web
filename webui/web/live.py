@@ -9,6 +9,7 @@ from flask import Blueprint, current_app, jsonify, render_template, request
 from flask_login import login_required
 
 from common.ports import client_side
+from .filters import PROTOCOLS, FilterError, endpoint_has_port, parse_port, parse_proto
 
 bp = Blueprint("live", __name__)
 
@@ -19,8 +20,6 @@ DEFAULT_LIMIT = 50
 MAX_LIMIT = 1000
 # A snapshot older than this means the collector or iftop is not running.
 STALE_AFTER = 10
-
-PROTOCOLS = {1: "icmp", 6: "tcp", 17: "udp", 58: "icmpv6", 132: "sctp"}
 
 
 class SnapshotCache:
@@ -149,11 +148,18 @@ def _int_arg(name, default, lo, hi):
     return max(lo, min(hi, value))
 
 
-def top_connections(conns, limit, window, sort, filter_text):
-    """Filters, sorts by the given window, and keeps the first `limit`."""
+def top_connections(conns, limit, window, sort, filter_text, port=None, proto=None):
+    """Filters, sorts by the given window, and keeps the first `limit`.
+
+    port is a number or a service name and matches either end; proto is a
+    protocol number.
+    """
     idx = WINDOWS[window]
     terms = filter_text.lower().split()
-    matched = [c for c in conns if _matches(c, terms)] if terms else list(conns)
+    matched = [c for c in conns
+               if (not terms or _matches(c, terms))
+               and (proto is None or c.get("protocol") == proto)
+               and (port is None or endpoint_has_port(c["src"], port) or endpoint_has_port(c["dst"], port))]
     matched.sort(key=_sort_key(sort, idx), reverse=True)
     shown, rest = matched[:limit], matched[limit:]
     return {
@@ -191,6 +197,11 @@ def api_live():
     if sort not in SORTS:
         sort = "total"
     filter_text = request.args.get("filter", "")[:200]
+    try:
+        port = parse_port(request.args.get("port"))
+        proto = parse_proto(request.args.get("proto"))
+    except FilterError as e:
+        return jsonify(error=str(e)), 400
 
     age = max(0, int(time.time()) - snap["timestamp"])
     result = {
@@ -204,7 +215,7 @@ def api_live():
         "connection_count": len(snap.get("connections", [])),
         "totals": snap.get("totals", {}),
     }
-    result.update(top_connections(conns, limit, window, sort, filter_text))
+    result.update(top_connections(conns, limit, window, sort, filter_text, port, proto))
     response = jsonify(result)
     response.headers["Cache-Control"] = "no-store"
     return response

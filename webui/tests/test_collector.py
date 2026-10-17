@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 
 from common import config as config_mod
 from conftest import SAMPLE, WEBUI, sample_lines
@@ -102,12 +103,25 @@ def _history_sums(path):
         conn.close()
 
 
+def recent_sample(tmp_path):
+    """The recorded sample with its timestamps moved to the last minute.
+
+    Recorded timestamps age past the retention period and get purged.
+    """
+    snaps = [json.loads(line) for line in sample_lines()]
+    shift = int(time.time()) - 60 - snaps[0]["timestamp"]
+    path = tmp_path / "recent.jsonl"
+    path.write_text("".join(json.dumps(dict(s, timestamp=s["timestamp"] + shift)) + "\n" for s in snaps))
+    return path
+
+
 def test_stdin_mode_stores_history_once(tmp_path, cfg):
     config = tmp_path / "config.toml"
     config.write_text(f'interfaces = ["lo"]\ndatadir = "{cfg.datadir}"\nrundir = "{cfg.rundir}"\n')
     expected_sent = sum(json.loads(line)["totals"]["sent_rate"][0] * 2 for line in sample_lines())
+    sample = recent_sample(tmp_path)
     for _ in range(2):
-        with open(SAMPLE) as f:
+        with open(sample) as f:
             subprocess.run([sys.executable, "-m", "collector", "-c", str(config), "--stdin"],
                            stdin=f, cwd=WEBUI, check=True, timeout=30)
         # The second replay finds every sample already stored.

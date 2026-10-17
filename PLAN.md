@@ -272,16 +272,29 @@ secret_key_file = "/etc/iftop-web/secret_key"
 
 ## Stage 3 — history and port selection
 
-1. **Most-used tuples:** top-N tuples by bytes for a chosen window, each with a
-   small history chart. Clicking one opens a detail page with its full history.
-2. **Per source and per destination:** the same views grouped by source host
-   or destination host (by name via `hosts`, IP shown as a tooltip). This is a
-   `GROUP BY` over `tuples`; the stored data doesn't change.
-3. **Port selection:** a filter on port or service (and protocol) on every
-   history page and on the live page. Indexes on `tuples(src_port)`,
-   `tuples(dst_port)`, `tuples(src_addr)` and `tuples(dst_addr)`.
-4. **Speed:** if per-host queries on 1-year hourly data turn out slow, add
-   per-host rollup tables then, not before.
+1. **Most-used tuples:** every row of the top list has a small chart (inline
+   SVG) of its total rate over the window, one point per bucket of the
+   list's resolution, with breaks where the collector wasn't running.
+   Clicking a row opens its detail view.
+2. **Per source and per destination:** the top list groups by connection,
+   source host or destination host (done early, in stage 2). Clicking a host
+   opens its detail view.
+3. **Detail views are filters.** `/history?tuple=ID`, `?src=ADDR` or
+   `?dst=ADDR` narrow the chart, the summary and the top list to that
+   connection or host, for every window; a banner names it, with a link back
+   to all traffic. The filters live in the page address, so a view can be
+   bookmarked. With a filter, the chart comes from the per-connection
+   tables, so its finest step is a minute.
+4. **Year tab:** the last 365 days from the day buckets, so a connection's
+   long-term history is visible.
+5. **Port selection:** a port (number or service name) and protocol filter
+   on the history and live pages. On the history page, a service name is
+   looked up in `services`; on the live page it matches the names iftop
+   reports. Schema version 3 adds indexes on `tuples(src_addr)`,
+   `tuples(dst_addr)`, `tuples(src_port)` and `tuples(dst_port)`. They
+   cost a little extra writing for each new tuple (see the flash notes).
+6. **Speed:** if per-host queries on 1-year data turn out slow, add per-host
+   tables or an index on `agg_*(tuple_id)` then, not before.
 
 ## Later
 

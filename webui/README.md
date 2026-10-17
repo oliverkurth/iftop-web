@@ -1,7 +1,7 @@
 # iftop web interface
 
 A web interface for iftop's JSON output: a live view and the traffic history.
-See `../PLAN.md` for the full plan; stages 1 and 2 are done.
+See `../PLAN.md` for the full plan; stages 1 to 3 are done.
 
 Two processes:
 
@@ -119,6 +119,8 @@ longer matches.
 | `sort` | `total`, `sent`, `recv` | `total` |
 | `filter` | words that must all appear in host, IP, port, service or protocol | none |
 | `fold` | `1`: merge connections that differ only in the client port | `0` |
+| `port` | port number or service name; matches either end | none |
+| `proto` | `tcp`, `udp`, `icmp`, `icmpv6`, … or a protocol number | none |
 
 Rates are in bytes per second. `stale` is true when the snapshot is more than
 10 seconds old.
@@ -149,7 +151,8 @@ buckets (in local time), with the client ports folded as described in
 Minutes are kept for `minute_days` (default 7), hours for `hour_days`
 (default 365), days for ever.
 
-The page has tabs for the last minute, 5 minutes, hour, day, week and month.
+The page has tabs for the last minute, 5 minutes, hour, day, week, month and
+year.
 Each shows a chart of the interface's traffic over that window and the top
 connections, or source or destination hosts, with their bytes and average
 rate. The minute chart has a point for every 2-second sample, 5 minutes one
@@ -159,16 +162,29 @@ the collector was not running are breaks in the chart, and the summary says
 how much of the window has data. A window covers whole buckets, so it can be
 up to one bucket longer than its name: the summary shows the exact range.
 
+Each row of the top list has a small chart of its traffic over the window,
+and links to its detail view: the same page narrowed to that connection or
+host (`/history?tuple=ID`, `?src=ADDR`, `?dst=ADDR`). The Port and Protocol
+controls narrow any view further. Filters are kept in the page address, so a
+view can be bookmarked.
+
 `GET /api/agg` parameters:
 
 | Parameter | Values | Default |
 |---|---|---|
-| `window` | `minute`, `5min`, `hour`, `day`, `week`, `month` | `hour` |
+| `window` | `minute`, `5min`, `hour`, `day`, `week`, `month`, `year` | `hour` |
 | `group` | `tuple` (connection), `src`, `dst` (host) | `tuple` |
 | `sort` | `total`, `sent`, `recv` | `total` |
 | `limit` | 1–500 | 20 |
+| `tuple` | a connection id (`id` of a top list item) | none |
+| `src`, `dst` | a source or destination address | none |
+| `port` | port number or service name; matches either end | none |
+| `proto` | `tcp`, `udp`, `icmp`, `icmpv6`, … or a protocol number | none |
 
-Bytes are totals for the window; chart rates are bytes per second.
+Bytes are totals for the window; chart rates are bytes per second. Each item
+has `series`, its rate per bucket at the times in `series.times` (null where
+the collector wasn't running). `filter` describes the active filters with
+names resolved. Invalid filter values give a 400 error.
 
 ## Tests
 

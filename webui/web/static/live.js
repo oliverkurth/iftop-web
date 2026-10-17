@@ -18,6 +18,8 @@
     scaleMode: document.getElementById("scale-mode"),
     units: document.getElementById("units"),
     filter: document.getElementById("filter"),
+    port: document.getElementById("port"),
+    proto: document.getElementById("proto"),
     status: document.getElementById("status"),
     totals: document.getElementById("totals"),
     ticks: document.getElementById("ticks"),
@@ -264,6 +266,8 @@
       fold: els.fold.value,
       filter: els.filter.value.trim(),
     });
+    if (els.port.value.trim()) params.set("port", els.port.value.trim());
+    if (els.proto.value) params.set("proto", els.proto.value);
     try {
       const resp = await fetch(apiUrl + "?" + params, {
         credentials: "same-origin", cache: "no-store", signal: ctl.signal,
@@ -291,10 +295,13 @@
   // ---- wiring ----
 
   let filterTimer = null;
-  els.filter.addEventListener("input", () => {
-    clearTimeout(filterTimer);
-    filterTimer = setTimeout(poll, 300);
-  });
+  for (const input of [els.filter, els.port]) {
+    input.addEventListener("input", () => {
+      clearTimeout(filterTimer);
+      filterTimer = setTimeout(poll, 300);
+    });
+  }
+  els.proto.addEventListener("change", poll);
   for (const k of ["window", "sort", "fold"]) {
     els[k].addEventListener("change", () => { saveSettings(); poll(); });
   }

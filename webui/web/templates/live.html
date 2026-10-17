@@ -39,6 +39,18 @@
         <option value="bytes">bytes/s</option>
       </select>
     </label>
+    <label>Port
+      <input id="port" type="search" placeholder="number or service" autocomplete="off" spellcheck="false" size="12">
+    </label>
+    <label>Protocol
+      <select id="proto">
+        <option value="">any</option>
+        <option value="tcp">tcp</option>
+        <option value="udp">udp</option>
+        <option value="icmp">icmp</option>
+        <option value="icmpv6">icmpv6</option>
+      </select>
+    </label>
     <label class="filter">Filter
       <input id="filter" type="search" placeholder="host, IP, port, service, protocol" autocomplete="off" spellcheck="false">
     </label>

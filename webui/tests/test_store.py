@@ -275,6 +275,8 @@ def test_upgrade_from_version_1(db_path):
     store.close()
     conn = sqlite3.connect(db_path)
     conn.execute("DROP TABLE totals_raw")
+    for name in ("src_addr", "dst_addr", "src_port", "dst_port"):
+        conn.execute(f"DROP INDEX tuples_{name}")
     conn.execute("PRAGMA user_version = 1")
     conn.commit()
     conn.close()
@@ -283,6 +285,7 @@ def test_upgrade_from_version_1(db_path):
     store.add(snap(T0 + 2, [https()]))
     store.close()
     assert rows(db_path, "PRAGMA user_version") == [(SCHEMA_VERSION,)]
+    assert len(rows(db_path, "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'tuples_%'")) == 4
     assert rows(db_path, "SELECT ts FROM totals_raw") == [(T0 + 2,)]
     assert sums(db_path, "1m")[2] == 2         # the old data is kept
 

@@ -6,7 +6,7 @@
 <script src="{{ url_for('static', filename='history.js') }}" defer></script>
 {% endblock %}
 {% block content %}
-{% set labels = {"minute": "Minute", "5min": "5 min", "hour": "Hour", "day": "Day", "week": "Week", "month": "Month"} %}
+{% set labels = {"minute": "Minute", "5min": "5 min", "hour": "Hour", "day": "Day", "week": "Week", "month": "Month", "year": "Year"} %}
 <div class="history" data-api="{{ url_for('history.api_agg') }}" data-login="{{ url_for('auth.login', next=url_for('history.page')) }}">
   <div class="tabs" role="tablist" aria-label="Time window">
     {% for w in windows %}
@@ -20,6 +20,18 @@
         <option value="tuple">connection</option>
         <option value="src">source host</option>
         <option value="dst">destination host</option>
+      </select>
+    </label>
+    <label>Port
+      <input id="port" type="search" placeholder="number or service" autocomplete="off" spellcheck="false" size="12">
+    </label>
+    <label>Protocol
+      <select id="proto">
+        <option value="">any</option>
+        <option value="tcp">tcp</option>
+        <option value="udp">udp</option>
+        <option value="icmp">icmp</option>
+        <option value="icmpv6">icmpv6</option>
       </select>
     </label>
     <label>Sort
@@ -37,6 +49,11 @@
     </label>
     <span id="status" class="status" role="status"></span>
   </div>
+
+  <p id="filter-banner" class="filter-banner" hidden>
+    <span id="filter-text"></span>
+    <a id="filter-clear" href="">All traffic</a>
+  </p>
 
   <p id="summary" class="summary"></p>
 

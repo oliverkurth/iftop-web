@@ -8,7 +8,7 @@ Ports in `tuples`: 0 means the connection has no ports (e.g. ICMP), -1 that
 the port was folded (the client's ephemeral port, shown as "*").
 """
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 PORT_NONE = 0
 PORT_FOLDED = -1
@@ -29,9 +29,18 @@ CREATE TABLE totals_raw (
 ) WITHOUT ROWID;
 """
 
+# For filtering by host or port (history detail views and port filter).
+TUPLE_INDEXES = """
+CREATE INDEX tuples_src_addr ON tuples (src_addr);
+CREATE INDEX tuples_dst_addr ON tuples (dst_addr);
+CREATE INDEX tuples_src_port ON tuples (src_port);
+CREATE INDEX tuples_dst_port ON tuples (dst_port);
+"""
+
 # Statements that bring a database from version N-1 to N.
 MIGRATIONS = {
     2: RAW_TABLE,
+    3: TUPLE_INDEXES,
 }
 
 SCHEMA = """
@@ -102,4 +111,4 @@ CREATE TABLE totals_{_level} (
 ) WITHOUT ROWID;
 """
 
-SCHEMA += RAW_TABLE
+SCHEMA += RAW_TABLE + TUPLE_INDEXES
