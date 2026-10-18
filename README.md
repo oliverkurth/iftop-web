@@ -10,6 +10,8 @@ It is forked from Debian's git repository for iftop
 so it builds on iftop 1.0pre4 with Debian's packaging and patches, and keeps
 Debian's full history (see [Updates from Debian](#updates-from-debian)).
 
+![The live page: the connections with the most traffic, with bars for sent and received data](docs/iftop-web-live.png)
+
 ## What is different from iftop
 
 - **No interactive terminal display.** The ncurses UI is replaced by JSON
@@ -66,6 +68,7 @@ covers the first steps on the system.
 | `jsondump/` | a small library for writing JSON from C |
 | `webui/` | the collector, the web interface and their tests (Python) |
 | `debian/` | the Debian packaging, systemd units and `build-deb` |
+| `docs/` | screenshots |
 | `PLAN.md` | the design and its history, including measurements and open ideas |
 
 ## Updates from Debian
