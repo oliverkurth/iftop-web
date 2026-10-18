@@ -92,12 +92,31 @@
       for (let k = 1; k < 5; k++) values.push((max * k) / 5);
     }
     values.push(max);
+    const ticks = [];
     for (const bits of values) {
       const t = document.createElement("span");
       t.className = "tick" + (bits === max ? " end" : "");
       t.textContent = formatRate(bits / 8);
       t.style.left = (barFraction(bits / 8) * 100) + "%";
       els.ticks.appendChild(t);
+      ticks.push(t);
+    }
+    dropOverlappingTicks(ticks);
+  }
+
+  // Removes labels that would overlap a neighbour; the scale maximum (the
+  // last label) always stays.
+  function dropOverlappingTicks(ticks) {
+    const GAP = 6;
+    const end = ticks[ticks.length - 1].getBoundingClientRect();
+    let lastRight = -Infinity;
+    for (const t of ticks.slice(0, -1)) {
+      const r = t.getBoundingClientRect();
+      if (r.left < lastRight + GAP || r.right > end.left - GAP) {
+        t.remove();
+      } else {
+        lastRight = r.right;
+      }
     }
   }
 
