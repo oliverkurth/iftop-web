@@ -274,7 +274,6 @@ def test_upgrade_from_version_1(db_path):
     store.add(snap(T0, [https()]))
     store.close()
     conn = sqlite3.connect(db_path)
-    conn.execute("DROP TABLE totals_raw")
     for name in ("src_addr", "dst_addr", "src_port", "dst_port"):
         conn.execute(f"DROP INDEX tuples_{name}")
     conn.execute("PRAGMA user_version = 1")
@@ -286,14 +285,91 @@ def test_upgrade_from_version_1(db_path):
     store.close()
     assert rows(db_path, "PRAGMA user_version") == [(SCHEMA_VERSION,)]
     assert len(rows(db_path, "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'tuples_%'")) == 4
-    assert rows(db_path, "SELECT ts FROM totals_raw") == [(T0 + 2,)]
+    assert rows(db_path, "SELECT name FROM sqlite_master WHERE name = 'totals_raw'") == []
     assert sums(db_path, "1m")[2] == 2         # the old data is kept
 
 
-def test_samples_are_kept_for_an_hour(store, db_path):
+def test_upgrade_from_version_3_moves_samples_out(db_path):
+    Store(db_path).open().close()
+    conn = sqlite3.connect(db_path)
+    conn.executescript("CREATE TABLE totals_raw (interface TEXT, ts INTEGER, bytes_sent INTEGER,"
+                       " bytes_recv INTEGER); INSERT INTO totals_raw VALUES ('eth0', 1, 2, 3);"
+                       " PRAGMA user_version = 3;")
+    conn.close()
+    Store(db_path).open().close()
+    assert rows(db_path, "SELECT name FROM sqlite_master WHERE name = 'totals_raw'") == []
+
+
+@pytest.fixture
+def recent_path(tmp_path):
+    return str(tmp_path / "run" / "recent.db")
+
+
+def test_samples_go_to_the_recent_database(db_path, recent_path):
+    store = Store(db_path, recent_path=recent_path).open()
     for t in range(T0, T0 + 7200 + 1, 600):
         store.add(snap(t, [https(10, 20)]))
-    store.flush()
-    assert [r[0] for r in rows(db_path, "SELECT ts FROM totals_raw ORDER BY ts")] == \
+    store.close()
+    assert [r[0] for r in rows(recent_path, "SELECT ts FROM totals_raw ORDER BY ts")] == \
         list(range(T0 + 3600, T0 + 7200 + 1, 600))
-    assert rows(db_path, "SELECT bytes_sent, bytes_recv FROM totals_raw LIMIT 1") == [(20, 40)]
+    assert rows(recent_path, "SELECT bytes_sent, bytes_recv FROM totals_raw LIMIT 1") == [(20, 40)]
+    assert os.stat(recent_path).st_mode & 0o777 == 0o644
+
+
+def test_samples_are_written_often_and_history_rarely(db_path, recent_path):
+    now = [1000.0]
+    store = Store(db_path, recent_path=recent_path, flush_interval=300, clock=lambda: now[0]).open()
+    for i in range(10):                         # 20 seconds of samples
+        store.add(snap(T0 + 2 * i, [https()]))
+        now[0] += 2
+        store.maybe_flush()
+    assert len(rows(recent_path, "SELECT * FROM totals_raw")) >= 5
+    assert sums(db_path, "1m") == (0, 0, 0)     # not due yet
+    now[0] += 300
+    store.maybe_flush()
+    assert sums(db_path, "1m")[2] == 10
+    store.close()
+
+
+def test_unchanged_hosts_and_services_are_not_rewritten(db_path):
+    store = Store(db_path).open()
+
+    def host():
+        return rows(db_path, "SELECT name, last_seen FROM hosts WHERE addr = '10.0.0.1'")[0]
+
+    store.add(snap(T0, [https(src_host="laptop")]))
+    store.flush()
+    assert host() == ("laptop", T0)
+    # Seen again within the hour with the same name: not written.
+    store.add(snap(T0 + 600, [https(src_host="laptop")]))
+    store.flush()
+    assert host() == ("laptop", T0)
+    # A new name is written at once.
+    store.add(snap(T0 + 602, [https(src_host="laptop.lan")]))
+    store.flush()
+    assert host() == ("laptop.lan", T0 + 602)
+    # last_seen is updated once an hour has passed.
+    store.add(snap(T0 + 602 + 3600, [https(src_host="laptop.lan")]))
+    store.flush()
+    assert host() == ("laptop.lan", T0 + 602 + 3600)
+
+    # A service is written once; deleting the row shows it isn't written again.
+    conn = sqlite3.connect(db_path)
+    conn.execute("DELETE FROM services")
+    conn.commit()
+    conn.close()
+    store.add(snap(T0 + 8000, [https()]))
+    store.flush()
+    assert rows(db_path, "SELECT * FROM services") == []
+    store.close()
+
+
+def test_flush_interval_from_config(tmp_path):
+    from common import config as config_mod
+    cfg = config_mod.from_dict({"datadir": str(tmp_path / "d"), "rundir": str(tmp_path / "r"),
+                                "flush_interval": 300})
+    store = Store.from_config(cfg)
+    assert store.flush_interval == 300 and store.recent_path == cfg.recent_path
+    for bad in (0, 3601, "10"):
+        with pytest.raises(config_mod.ConfigError):
+            config_mod.from_dict({"flush_interval": bad})

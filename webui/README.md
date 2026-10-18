@@ -147,7 +147,9 @@ files are moved to the parent directory. Extra arguments are passed to
 
 The collector stores the traffic per connection in minute, hour and day
 buckets (in local time), with the client ports folded as described in
-`../PLAN.md`. It writes every 10 seconds; stopping it writes what is left.
+`../PLAN.md`. It writes every `flush_interval` seconds (default 10; the
+Debian package sets 60 to spare flash storage); stopping it writes what is
+left, a crash loses up to that much.
 Minutes are kept for `minute_days` (default 7), hours for `hour_days`
 (default 365), days for ever.
 
@@ -157,7 +159,8 @@ Each shows a chart of the interface's traffic over that window and the top
 connections, or source or destination hosts, with their bytes and average
 rate. The minute chart has a point for every 2-second sample, 5 minutes one
 per 10 seconds; for these the collector keeps the samples' totals for an
-hour. Times when
+hour in `<rundir>/recent.db` on tmpfs, written every 10 seconds whatever the
+`flush_interval`, so these two charts are always current. Times when
 the collector was not running are breaks in the chart, and the summary says
 how much of the window has data. A window covers whole buckets, so it can be
 up to one bucket longer than its name: the summary shows the exact range.

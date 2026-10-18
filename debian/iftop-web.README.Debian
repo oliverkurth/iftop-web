@@ -63,9 +63,12 @@ Files
  /etc/iftop-web/config.toml            configuration
  /run/iftop-collector/live.json        latest snapshot, rewritten every 2 s;
                                        on tmpfs, so it never touches the disk
+ /run/iftop-collector/recent.db        the last hour of per-sample totals, for
+                                       the minute and 5-minute charts (tmpfs)
  /var/lib/iftop-collector/iftop.db     traffic history (SQLite, readable by
-                                       everyone); see [retention] in the
-                                       configuration
+                                       everyone), written every flush_interval
+                                       seconds (60 by default, to spare flash
+                                       storage); see also [retention]
  /var/lib/iftop-web/users.db           users (scrypt password hashes)
  /var/lib/iftop-web/secret_key         signs session cookies; created on first
                                        start. Deleting it logs everybody out.

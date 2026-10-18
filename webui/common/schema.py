@@ -8,7 +8,7 @@ Ports in `tuples`: 0 means the connection has no ports (e.g. ICMP), -1 that
 the port was folded (the client's ephemeral port, shown as "*").
 """
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 PORT_NONE = 0
 PORT_FOLDED = -1
@@ -18,9 +18,11 @@ LEVELS = ("1m", "1h", "1d")
 # How long the per-sample interface totals are kept, for the short charts.
 RAW_KEEP = 3600
 
-# Per-sample interface totals (one row per 2-second iftop sample).
+# Per-sample interface totals (one row per 2-second iftop sample). Since
+# schema version 4 they live in a separate small database on tmpfs
+# (<rundir>/recent.db), so they don't wear out flash storage.
 RAW_TABLE = """
-CREATE TABLE totals_raw (
+CREATE TABLE IF NOT EXISTS totals_raw (
     interface  TEXT NOT NULL,
     ts         INTEGER NOT NULL,
     bytes_sent INTEGER NOT NULL,
@@ -41,6 +43,7 @@ CREATE INDEX tuples_dst_port ON tuples (dst_port);
 MIGRATIONS = {
     2: RAW_TABLE,
     3: TUPLE_INDEXES,
+    4: "DROP TABLE IF EXISTS totals_raw;",
 }
 
 SCHEMA = """
@@ -111,4 +114,4 @@ CREATE TABLE totals_{_level} (
 ) WITHOUT ROWID;
 """
 
-SCHEMA += RAW_TABLE + TUPLE_INDEXES
+SCHEMA += TUPLE_INDEXES

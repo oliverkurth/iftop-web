@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import time
 
@@ -14,7 +15,7 @@ NOW = 1_790_003_630        # 30 s into a minute
 @pytest.fixture
 def filled(cfg):
     """An hour of samples ending at NOW, with a 10-minute gap in the middle."""
-    store = Store(cfg.db_path).open()
+    store = Store.from_config(cfg).open()
     for t in range(NOW - 3600, NOW + 1, 2):
         if NOW - 1800 <= t < NOW - 1200:
             continue                                   # collector not running
@@ -30,7 +31,7 @@ def filled(cfg):
 def q(cfg, window, **kw):
     conn = history.connect(cfg.db_path)
     try:
-        return history.query(conn, window, now=NOW, **kw)
+        return history.query(conn, window, now=NOW, recent_path=cfg.recent_path, **kw)
     finally:
         conn.close()
 
@@ -122,7 +123,7 @@ def test_api_without_history(logged_in):
 
 
 def test_api(logged_in, cfg):
-    store = Store(cfg.db_path).open()
+    store = Store.from_config(cfg).open()
     now = int(time.time())
     for t in range(now - 120, now, 2):
         store.add(snap(t, [https(10, 20)]))
@@ -156,7 +157,7 @@ def test_chart_js(logged_in, cfg, tmp_path):
 
 
 def test_reading_while_the_collector_writes(logged_in, cfg):
-    store = Store(cfg.db_path).open()
+    store = Store.from_config(cfg).open()
     now = int(time.time())
     store.add(snap(now - 10, [https()]))
     store.flush()
@@ -182,7 +183,7 @@ def test_chart_ranges_grow_with_the_window(filled):
 
 
 def test_minute_chart_has_a_point_per_sample(cfg):
-    store = Store(cfg.db_path).open()
+    store = Store.from_config(cfg).open()
     times = [NOW - 80 + 2 * i for i in range(10)] + [NOW - 30 + 2 * i for i in range(10)]
     for t in times:
         store.add(snap(t, [https(100, 1000)]))
@@ -198,7 +199,7 @@ def test_minute_chart_has_a_point_per_sample(cfg):
 
 
 def test_5min_chart_has_10_second_steps(cfg):
-    store = Store(cfg.db_path).open()
+    store = Store.from_config(cfg).open()
     for t in range(NOW - 300, NOW + 1, 2):
         store.add(snap(t, [https(100, 1000)]))
     store.close()
@@ -209,18 +210,23 @@ def test_5min_chart_has_10_second_steps(cfg):
     assert full and all(p[1:] == [100.0, 1000.0] for p in full)
 
 
-def test_old_database_without_samples_table(cfg):
-    """The web app keeps working until the collector has upgraded the database."""
-    store = Store(cfg.db_path).open()
+def test_without_the_samples_database(cfg):
+    """After a reboot /run is empty: the short charts are empty until new samples arrive."""
+    store = Store.from_config(cfg).open()
     store.add(snap(NOW - 10, [https()]))
     store.close()
-    conn = sqlite3.connect(cfg.db_path)
-    conn.execute("DROP TABLE totals_raw")
-    conn.execute("PRAGMA user_version = 1")
-    conn.commit()
-    conn.close()
+    os.unlink(cfg.recent_path)
     data = q(cfg, "minute")
     assert data["chart"]["points"] == [] and data["count"] == 1
+
+
+def test_samples_come_from_the_database_in_rundir(cfg):
+    store = Store.from_config(cfg).open()
+    store.add(snap(NOW - 10, [https(100, 1000)]))
+    store.close()
+    assert os.path.dirname(cfg.recent_path) == cfg.rundir
+    points = [p for p in q(cfg, "minute")["chart"]["points"] if p[1] is not None]
+    assert points == [[NOW - 10, 100.0, 1000.0]]
 
 
 # ---- stage 3: filters, detail views, small charts ----
@@ -228,7 +234,7 @@ def test_old_database_without_samples_table(cfg):
 def qf(cfg, window="hour", **filt):
     conn = history.connect(cfg.db_path)
     try:
-        return history.query(conn, window, now=NOW, filt=history.Filter(**filt))
+        return history.query(conn, window, now=NOW, filt=history.Filter(**filt), recent_path=cfg.recent_path)
     finally:
         conn.close()
 
@@ -340,14 +346,14 @@ def test_year_window(filled):
     ("proto=xyz", "unknown protocol"),
 ])
 def test_api_rejects_bad_filters(logged_in, cfg, query_string, message):
-    Store(cfg.db_path).open().close()
+    Store.from_config(cfg).open().close()
     resp = logged_in.get("/api/agg?" + query_string)
     assert resp.status_code == 400
     assert message in resp.get_json()["error"]
 
 
 def test_api_filters(logged_in, cfg):
-    store = Store(cfg.db_path).open()
+    store = Store.from_config(cfg).open()
     now = int(time.time())
     for t in range(now - 120, now, 2):
         store.add(snap(t, [https(10, 20), conn_(41000, 53, 1, 1, proto=17, dst="10.0.0.53", dst_service="domain")]))

@@ -49,6 +49,9 @@ class Config:
     # The live snapshot, rewritten every 2 s; /run is a tmpfs, which spares
     # flash storage.
     rundir: str = "/run/iftop-collector"
+    # Seconds between writes of the history to datadir. Longer means fewer
+    # writes to flash storage, but a crash loses up to that much history.
+    flush_interval: int = 10
     ephemeral_port_min: int = 32768
     server_ports: list[int] = field(default_factory=list)
     retention: RetentionConfig = field(default_factory=RetentionConfig)
@@ -66,6 +69,10 @@ class Config:
     def db_path(self):
         return os.path.join(self.datadir, "iftop.db")
 
+    @property
+    def recent_path(self):
+        return os.path.join(self.rundir, "recent.db")
+
 
 def _build(cls, data, section):
     known = cls.__dataclass_fields__
@@ -82,6 +89,8 @@ def from_dict(data):
     cfg = _build(Config, data, "top level")
     cfg.retention = retention
     cfg.web = web
+    if not isinstance(cfg.flush_interval, int) or not 1 <= cfg.flush_interval <= 3600:
+        raise ConfigError("'flush_interval' must be between 1 and 3600 seconds")
     if not isinstance(cfg.interfaces, list) or len(cfg.interfaces) > 1:
         raise ConfigError("'interfaces' must list at most one interface (only one is supported for now)")
     return cfg

@@ -3,11 +3,16 @@
 Each iftop line covers exactly one 2-second history slot, and its first rate
 is that slot's bytes divided by 2, so the bytes of a sample are rate[0] * 2.
 
-Counts are summed in memory and written every FLUSH_INTERVAL seconds in one
-transaction, together with the timestamp of the newest sample. All writes add
-to existing rows, and samples not newer than the stored timestamp are
-skipped, so a crash loses at most the unwritten samples and a restart or a
-replay never counts anything twice.
+Counts are summed in memory and written every flush_interval seconds (10
+by default; longer on flash storage) in one transaction, together with the
+timestamp of the newest sample. All writes add to existing rows, and samples
+not newer than the stored timestamp are skipped, so a crash loses at most the
+unwritten samples and a restart or a replay never counts anything twice.
+
+The interface totals of every sample go to a separate small database on
+tmpfs every RAW_FLUSH_INTERVAL seconds, for the short charts. Host names and
+services are only written when they change, and a host's last_seen at most
+every HOST_SEEN_INTERVAL seconds.
 """
 
 import logging
@@ -17,12 +22,14 @@ import time
 
 from common import buckets
 from common.ports import client_side, is_known_service
-from common.schema import MIGRATIONS, PORT_FOLDED, PORT_NONE, RAW_KEEP, SCHEMA, SCHEMA_VERSION
+from common.schema import MIGRATIONS, PORT_FOLDED, PORT_NONE, RAW_KEEP, RAW_TABLE, SCHEMA, SCHEMA_VERSION
 
 log = logging.getLogger("iftop-collector")
 
 RESOLUTION = 2
 FLUSH_INTERVAL = 10
+RAW_FLUSH_INTERVAL = 10
+HOST_SEEN_INTERVAL = buckets.HOUR
 PURGE_INTERVAL = buckets.DAY
 
 _ADD_SQL = """
@@ -63,10 +70,25 @@ def open_db(path):
     return conn
 
 
+def open_recent_db(path):
+    """Opens (and creates) the database of per-sample totals on tmpfs."""
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    new = not os.path.exists(path)
+    conn = sqlite3.connect(path, timeout=30, isolation_level=None)
+    conn.execute("PRAGMA journal_mode = DELETE")
+    conn.executescript(RAW_TABLE)
+    if new:
+        os.chmod(path, 0o644)
+    return conn
+
+
 class Store:
     def __init__(self, path, server_ports=(), ephemeral_port_min=32768,
-                 minute_days=7, hour_days=365, flush_interval=FLUSH_INTERVAL, clock=time.time):
+                 minute_days=7, hour_days=365, flush_interval=FLUSH_INTERVAL, clock=time.time,
+                 recent_path=None):
         self.path = path
+        self.recent_path = recent_path
+        self.recent = None
         self.server_ports = frozenset(server_ports)
         self.ephemeral_port_min = ephemeral_port_min
         self.minute_days = minute_days
@@ -77,13 +99,20 @@ class Store:
         self.session_id = None
         self.tuple_ids = {}
         self.last_ts = {}
+        # What is already in the database, so unchanged rows aren't rewritten.
+        self.written_hosts = {}     # (interface, addr) -> (name, last_seen)
+        self.written_services = {}  # (proto, port) -> name
         self._clear_pending()
+        self.pending_raw = []       # (interface, ts, sent, recv) per sample
         self.next_flush = 0
+        self.next_raw_flush = 0
         self.next_purge = 0
         self.skipped = 0
 
     @classmethod
     def from_config(cls, cfg, **kwargs):
+        kwargs.setdefault("flush_interval", cfg.flush_interval)
+        kwargs.setdefault("recent_path", cfg.recent_path)
         return cls(cfg.db_path, cfg.server_ports, cfg.ephemeral_port_min,
                    cfg.retention.minute_days, cfg.retention.hour_days, **kwargs)
 
@@ -92,7 +121,6 @@ class Store:
         self.pending_totals = {}   # (interface, minute) -> [sent, recv, samples]
         self.pending_hosts = {}    # (interface, addr) -> (name, last_seen)
         self.pending_services = {}  # (proto, port) -> name
-        self.pending_raw = []       # (interface, ts, sent, recv) per sample
         self.interface = None
 
     # ---- lifecycle ----
@@ -104,7 +132,10 @@ class Store:
         now = int(self.clock())
         self.session_id = self.conn.execute(
             "INSERT INTO collector_sessions (started, last_heartbeat) VALUES (?, ?)", (now, now)).lastrowid
+        if self.recent_path:
+            self.recent = open_recent_db(self.recent_path)
         self.next_flush = self.clock() + self.flush_interval
+        self.next_raw_flush = self.clock() + RAW_FLUSH_INTERVAL
         self.next_purge = 0
         return self
 
@@ -112,12 +143,16 @@ class Store:
         if self.conn is None:
             return
         try:
+            self.flush_raw()
             self.flush()
         finally:
             self.conn.execute("UPDATE collector_sessions SET last_heartbeat = ?, stopped = ? WHERE id = ?",
                               (int(self.clock()), int(self.clock()), self.session_id))
             self.conn.close()
             self.conn = None
+            if self.recent is not None:
+                self.recent.close()
+                self.recent = None
 
     # ---- ingesting samples ----
 
@@ -177,6 +212,8 @@ class Store:
 
     def maybe_flush(self):
         now = self.clock()
+        if now >= self.next_raw_flush:
+            self.flush_raw()
         if now >= self.next_flush:
             self.flush()
         if now >= self.next_purge:
@@ -207,6 +244,36 @@ class Store:
                     acc[i] += counts[i]
         return levels
 
+    def flush_raw(self):
+        """Writes the per-sample totals to the database on tmpfs."""
+        self.next_raw_flush = self.clock() + RAW_FLUSH_INTERVAL
+        if self.recent is None:
+            self.pending_raw = []
+            return
+        if not self.pending_raw:
+            return
+        conn = self.recent
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.executemany("INSERT OR REPLACE INTO totals_raw (interface, ts, bytes_sent, bytes_recv)"
+                             " VALUES (?, ?, ?, ?)", self.pending_raw)
+            for interface, ts in self.last_ts.items():
+                conn.execute("DELETE FROM totals_raw WHERE interface = ? AND ts < ?", (interface, ts - RAW_KEEP))
+            conn.execute("COMMIT")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+        self.pending_raw = []
+
+    def _changed_hosts(self):
+        """Pending hosts with a new name, or not marked as seen for an hour."""
+        rows = []
+        for (i, a), (name, seen) in self.pending_hosts.items():
+            old = self.written_hosts.get((i, a))
+            if old is None or (name and name != old[0]) or seen - old[1] >= HOST_SEEN_INTERVAL:
+                rows.append((i, a, name, seen))
+        return rows
+
     def flush(self):
         """Writes everything pending in one transaction."""
         self.next_flush = self.clock() + self.flush_interval
@@ -226,19 +293,16 @@ class Store:
             for level, rows in self._roll_up({(m, i): c for (i, m), c in self.pending_totals.items()}).items():
                 conn.executemany(_add_sql(f"totals_{level}", ("interface", "bucket_start")),
                                  [(i, b, *counts) for (b, i), counts in rows.items()])
+            hosts = self._changed_hosts()
             conn.executemany(
                 "INSERT INTO hosts (interface, addr, name, last_seen) VALUES (?, ?, ?, ?)"
                 " ON CONFLICT DO UPDATE SET name = coalesce(excluded.name, name),"
-                " last_seen = max(last_seen, excluded.last_seen)",
-                [(i, a, name, seen) for (i, a), (name, seen) in self.pending_hosts.items()])
+                " last_seen = max(last_seen, excluded.last_seen)", hosts)
+            services = [(p, port, name) for (p, port), name in self.pending_services.items()
+                        if self.written_services.get((p, port)) != name]
             conn.executemany(
                 "INSERT INTO services (proto, port, name) VALUES (?, ?, ?)"
-                " ON CONFLICT DO UPDATE SET name = excluded.name",
-                [(p, port, name) for (p, port), name in self.pending_services.items()])
-            conn.executemany("INSERT OR REPLACE INTO totals_raw (interface, ts, bytes_sent, bytes_recv)"
-                             " VALUES (?, ?, ?, ?)", self.pending_raw)
-            for interface, ts in self.last_ts.items():
-                conn.execute("DELETE FROM totals_raw WHERE interface = ? AND ts < ?", (interface, ts - RAW_KEEP))
+                " ON CONFLICT DO UPDATE SET name = excluded.name", services)
             conn.executemany(
                 "INSERT INTO ingest_state (interface, last_ts) VALUES (?, ?)"
                 " ON CONFLICT DO UPDATE SET last_ts = max(last_ts, excluded.last_ts)",
@@ -249,8 +313,13 @@ class Store:
         except BaseException:
             conn.execute("ROLLBACK")
             raise
-        # Only now are the new tuple ids valid.
+        # Only now are the new tuple ids, and what is written, valid.
         self.tuple_ids.update(new_ids)
+        for i, a, name, seen in hosts:
+            old = self.written_hosts.get((i, a))
+            self.written_hosts[(i, a)] = (name or (old[0] if old else None), seen)
+        for p, port, name in services:
+            self.written_services[(p, port)] = name
         log.debug("wrote %d connection and %d totals rows", len(self.pending), len(self.pending_totals))
         self._clear_pending()
 

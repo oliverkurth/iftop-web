@@ -17,6 +17,13 @@ server_ports = []
 # Otherwise the higher port is treated as the client's if it is at least this.
 ephemeral_port_min = 32768
 
+# Seconds between writes of the history to /var/lib/iftop-collector. 60 writes
+# about 3.5 times less to flash storage (SD or CF cards) than 10, but a crash
+# or power loss loses up to a minute of history, and the history pages (except
+# the minute and 5-minute charts) lag by up to a minute. 300 saves somewhat
+# more; use 10 on a disk.
+flush_interval = 60
+
 # How long the history keeps minute and hour buckets; days are kept for ever.
 [retention]
 #minute_days = 7

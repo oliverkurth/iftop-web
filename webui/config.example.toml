@@ -23,6 +23,12 @@ server_ports = []          # e.g. [51820, 32400]
 # below 1024: the higher port is folded if it is at least this.
 ephemeral_port_min = 32768
 
+# Seconds between writes of the history to datadir. On flash storage (SD or
+# CF cards) use a longer interval such as 60: far fewer writes, but a crash
+# or power loss loses up to that much history, and the history pages (except
+# the minute and 5-minute charts) lag by up to that long.
+flush_interval = 10
+
 [retention]
 minute_days = 7
 hour_days = 365

@@ -244,20 +244,27 @@ def totals(conn, level, start, where="", params=()):
     return {"bytes_sent": sent, "bytes_recv": recv, "covered_seconds": covered}
 
 
-def _raw_rows(conn, start):
+def _raw_rows(recent_path, start):
+    """Per-sample interface totals, from the collector's database on tmpfs."""
+    if not recent_path or not os.path.exists(recent_path):
+        return []
     try:
-        return conn.execute("""
-            SELECT ts, sum(bytes_sent), sum(bytes_recv), count(*)
-            FROM totals_raw WHERE ts >= ? GROUP BY ts ORDER BY ts""", (start,)).fetchall()
-    except sqlite3.OperationalError:
-        return []       # schema version 1: the collector has not been upgraded yet
+        conn = sqlite3.connect(f"file:{recent_path}?mode=ro", uri=True, timeout=10)
+        try:
+            return conn.execute("""
+                SELECT ts, sum(bytes_sent), sum(bytes_recv), count(*)
+                FROM totals_raw WHERE ts >= ? GROUP BY ts ORDER BY ts""", (start,)).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return []
 
 
-def chart_samples(conn, start):
+def chart_samples(recent_path, start):
     """One point per iftop sample, with a break where samples are missing."""
     points = []
     prev = None
-    for ts, s, r, n in _raw_rows(conn, start):
+    for ts, s, r, n in _raw_rows(recent_path, start):
         if prev is not None and ts - prev > 2 * RESOLUTION + 1:
             points.append([prev + RESOLUTION, None, None])
         points.append([ts, s / RESOLUTION / n, r / RESOLUTION / n])
@@ -289,12 +296,12 @@ def _points(sums, coverage, start, end, step):
     return points
 
 
-def chart(conn, level, step, start, end):
+def chart(conn, level, step, start, end, recent_path=None):
     """Average rates of the interface per step."""
     if level == "raw" and step == RESOLUTION:
-        return chart_samples(conn, start)
+        return chart_samples(recent_path, start)
     if level == "raw":
-        rows = _raw_rows(conn, start)
+        rows = _raw_rows(recent_path, start)
     else:
         rows = conn.execute(f"""
             SELECT bucket_start, sum(bytes_sent), sum(bytes_recv), sum(samples)
@@ -339,7 +346,8 @@ def series(conn, level, start, end, group, items, where="", params=()):
     return times
 
 
-def query(conn, window, group="tuple", sort="total", limit=DEFAULT_LIMIT, now=None, filt=None):
+def query(conn, window, group="tuple", sort="total", limit=DEFAULT_LIMIT, now=None, filt=None,
+          recent_path=None):
     now = int(now if now is not None else time.time())
     filt = filt or Filter()
     where, params = filt.sql(conn)
@@ -353,7 +361,7 @@ def query(conn, window, group="tuple", sort="total", limit=DEFAULT_LIMIT, now=No
         chart_level, step = FILTERED_CHART[window]
         result["chart"] = chart_filtered(conn, chart_level, step, start, now, where, params)
     else:
-        result["chart"] = chart(conn, chart_level, step, start, now)
+        result["chart"] = chart(conn, chart_level, step, start, now, recent_path)
     result["series"] = {"step": LEVEL_STEP[top_level],
                         "times": series(conn, top_level, start, now, group, result["items"], where, params)}
     return result
@@ -394,12 +402,13 @@ def api_agg():
         filt = _filter_from_request(request.args)
     except FilterError as e:
         return jsonify(error=str(e)), 400
+    cfg = current_app.config["IFTOP_CONFIG"]
     try:
-        conn = connect(current_app.config["IFTOP_CONFIG"].db_path)
+        conn = connect(cfg.db_path)
     except NoHistory:
         return jsonify(error="no history yet: is the collector running?"), 503
     try:
-        result = query(conn, window, group, sort, limit, filt=filt)
+        result = query(conn, window, group, sort, limit, filt=filt, recent_path=cfg.recent_path)
     finally:
         conn.close()
     response = jsonify(result)

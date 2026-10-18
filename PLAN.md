@@ -325,6 +325,30 @@ because every commit is synced.
 
 `journal_mode = TRUNCATE` instead of `DELETE` made no measurable difference.
 
+**Benchmark on the real Pi (2026-10-18).** Raspberry Pi 4, Debian 13,
+everything on a 64 GB SD card (ext4, `noatime`), journald persistent on the
+card. iftop-json/iftop-web `+git82ee419`, watching `br0`, default settings
+(10 s write interval). Traffic: about 250 connections per sample, 311
+folded tuples active per minute, 1,800 per hour, 11,000 per day, 5,100 new
+tuples per day; after 8 days the database is 55 MB with 41,000 tuples and
+1.86 million minute rows. Measured over 10 minutes (60 writes) from
+`/proc/<pid>/io`, `/sys/block/mmcblk0/stat` and ext4's
+`lifetime_write_kbytes`:
+
+| What | Written | Per day |
+|---|---|---|
+| collector (`write_bytes`) | 813 KB per write, 442 write calls per write | **7.0 GB** |
+| whole SD card (all processes, ext4 journal) | 54.5 MB in 10 min, 5,623 write requests | **7.9 GB** |
+| database file growth | 74 KB in 10 min | 11 MB |
+| journald, gunicorn | nothing (no web page open during the measurement) | 0 |
+
+The collector is about 90% of everything written to the card, and the
+writes are about 600 times the data actually added to the database. The
+counter since the service started (0.78 GB in 2.4 h) gives the same rate.
+Per write, the real traffic is close to the "churning" simulation above.
+Not measured: logging while a web page is open (gunicorn logs every
+request to the journal on the card: one line per 2 s per open live page).
+
 **Where it goes.**
 
 - Each write updates three resolutions. The current hour's and day's rows
@@ -359,11 +383,33 @@ because every commit is synced.
    small writes.
 5. **`hosts.last_seen` at most hourly.** Small saving, trivial.
 
-**Suggested first step:** 1 and 3 and 5 together, with the interval default
-staying 10 s and a recommendation of 300 s for flash-based systems in
-README.Debian. Measure again, then decide whether 2 or 4 is still needed.
-Also worth measuring on the real Pi: `iostat` or
-`/sys/block/mmcblk0/stat` over a day, to compare with these numbers.
+**First step, done (2026-10-18): options 1, 3 and 5.** `flush_interval`
+(built-in default 10 s; the Debian package's config file sets 60), the
+per-sample totals in `<rundir>/recent.db` on tmpfs (schema version 4 drops
+`totals_raw` from the main database), and host/service rows written only
+when they change, `last_seen` at most hourly.
+
+Fair comparison: 20 minutes of the Pi's real iftop output (231 active
+tuples/min) recorded, then replayed locally through each version, each
+starting from a copy of the Pi's 55 MB database and continuing right after
+its newest data. First 5 minutes excluded (startup host writes, first
+purge); bytes from `write_bytes - cancelled_write_bytes`:
+
+| Code | Interval | Per day | vs. before |
+|---|---|---|---|
+| before (`82ee419`) | 10 s | 5.6 GB | |
+| options 3 + 5 | 10 s | 1.6 GB | 3.5× less |
+| options 1 + 3 + 5 | 60 s | 0.46 GB | 12× less |
+| options 1 + 3 + 5 | 300 s | 0.29 GB | 19× less |
+
+On the Pi itself: 7.0 GB/day before (busier traffic, 272 tuples/min), 2.3
+GB/day with the new code at 10 s (quieter, 218/min), 254 MB/day at 300 s
+(227/min). At 300 s the whole card sees 441 MB/day, so the collector is now
+a bit over half of it; the rest is the system (journald and others).
+
+Going from 60 s to 300 s saves less than going from 10 s to 60 s. What
+remains per write is mostly the scattered hour and day rows (option 2) and
+the fixed cost of a transaction. Not done: options 2 and 4.
 
 ### Bounding the size of the history
 
