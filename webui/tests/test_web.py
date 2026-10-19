@@ -36,7 +36,9 @@ def test_wrong_password(client):
     assert client.get("/").status_code == 302
 
 
-@pytest.mark.parametrize("target", ["//evil.example/", "https://evil.example/", "/\\evil.example"])
+@pytest.mark.parametrize("target", ["//evil.example/", "https://evil.example/", "/\\evil.example",
+                                    "/\t/evil.example/", "/\n/evil.example/", "/\r/evil.example/",
+                                    "/ /evil.example/", "/\x00/evil.example/"])
 def test_no_open_redirect(client, target):
     resp = client.post("/login", query_string={"next": target},
                        data={"username": "alice", "password": PASSWORD})

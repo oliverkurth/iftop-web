@@ -1,5 +1,7 @@
 """Login and logout."""
 
+from urllib.parse import urlsplit
+
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from flask_login import login_required, login_user, logout_user
 from flask_wtf import FlaskForm
@@ -18,8 +20,13 @@ class LoginForm(FlaskForm):
 
 def _safe_next(target):
     """Only allows redirects to a path on this site."""
-    if target and target.startswith("/") and not target.startswith("//") and "\\" not in target:
-        return target
+    # Browsers (and Werkzeug) drop tabs and newlines from URLs, so "/\t/evil"
+    # would become "//evil": refuse control characters and spaces outright.
+    if (target and target.startswith("/") and not target.startswith("//") and "\\" not in target
+            and not any(c <= " " or c == "\x7f" for c in target)):
+        parts = urlsplit(target)
+        if not parts.scheme and not parts.netloc:
+            return target
     return url_for("live.index")
 
 
