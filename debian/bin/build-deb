@@ -1,6 +1,8 @@
 #!/bin/sh
-# Build the Debian packages with the git short sha appended to the version,
-# e.g. 1.0~pre4-10+json1 becomes 1.0~pre4-10+json1+git6784659.
+# Build the Debian packages with the number of commits and the git short sha
+# appended to the version, e.g. 1.0~pre4-10+json2 becomes
+# 1.0~pre4-10+json2+git109.8c61ee1. The commit count makes every later commit
+# a higher version; the sha alone sorts randomly.
 # The build runs in a temporary copy of the working tree, so the repository
 # is left untouched. The .deb, .buildinfo and .changes files are moved to the
 # parent directory, like dpkg-buildpackage does. Extra arguments go to
@@ -9,6 +11,7 @@ set -e
 top=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$top"
 
+count=$(git rev-list --count HEAD)
 sha=$(git rev-parse --short HEAD)
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
     sha="${sha}dirty"
@@ -24,7 +27,7 @@ git ls-files -co --exclude-standard -z |
     tar -x -C "$tmp/src"
 
 cd "$tmp/src"
-sed -i "1s/^\(iftop (\)\([^)]*\))/\1\2+git$sha)/" debian/changelog
+sed -i "1s/^\(iftop (\)\([^)]*\))/\1\2+git$count.$sha)/" debian/changelog
 dpkg-parsechangelog -SVersion
 dpkg-buildpackage -us -uc -b "$@"
 

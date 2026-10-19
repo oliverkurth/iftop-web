@@ -136,8 +136,9 @@ debian/bin/build-deb
 or, in a configured tree (`./bootstrap && ./configure`), `make deb`.
 
 This runs `dpkg-buildpackage -us -uc -b` (unsigned, binary only) and appends
-the git short sha to the package version, for example
-`1.0~pre4-10+json1+git6784659`; `dirty` follows the sha if tracked files have
+the number of commits and the git short sha to the package version, for
+example `1.0~pre4-10+json2+git109.8c61ee1`, so a later commit always gets a
+higher version; `dirty` follows the sha if tracked files have
 uncommitted changes. The build runs in a temporary copy of the working tree,
 so the repository is left untouched; the `.deb`, `.buildinfo` and `.changes`
 files are moved to the parent directory. Extra arguments are passed to

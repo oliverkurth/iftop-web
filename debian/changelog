@@ -1,3 +1,18 @@
+iftop (1.0~pre4-10+json2) UNRELEASED; urgency=medium
+
+  * iftop-web: store the traffic history (per connection by minute, hour and
+    day, client ports folded) and add a history page with charts, top lists,
+    detail views per connection and host, and port and protocol filters.
+  * iftop-web: keep live.json and the per-sample totals on tmpfs in
+    /run/iftop-collector, and write the history every 60 s by default
+    (flush_interval), to spare flash storage.
+  * iftop-web: close an open redirect through the login's next parameter.
+  * build-deb: put the commit count before the git sha in the version, so
+    later builds always get higher versions. The +json2 starts the new
+    numbering above the +json1+git<sha> builds.
+
+ -- Oliver Kurth <okurth@gmail.com>  Sun, 18 Oct 2026 18:27:54 -0700
+
 iftop (1.0~pre4-10+json1) UNRELEASED; urgency=medium
 
   * Replace the interactive display with JSON output, one line every two
